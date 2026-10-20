@@ -1,0 +1,4704 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>旅程拼图 · 路线规划器</title>
+<meta name="description" content="输入出发地、目的地、预算与时长，一键拼出一条可执行的行程：地图、时间轴、预算分配、他人行程导入，全部在单个网页内完成。">
+<meta name="theme-color" content="#3b82f6">
+<meta property="og:type" content="website">
+<meta property="og:title" content="旅程拼图 · 路线规划器">
+<meta property="og:description" content="一键把出发地、预算、时长拼成可执行行程：真实路网、可拖拽时间轴、预算分配、支持导入其它 AI 生成的行程文本。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233b82f6'/%3E%3Cpath d='M8 20l5-9 5 6 3-4 3 7z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#f5f6f8;
+    --panel:#ffffff;
+    --border:#e2e8f0;
+    --primary:#3b82f6;
+    --primary-dark:#2563eb;
+    --accent:#f97316;
+    --text:#0f172a;
+    --muted:#64748b;
+    --faint:#94a3b8;
+    --radius:6px;
+    --c-transport:#3b82f6;
+    --c-attraction:#22c55e;
+    --c-food:#f59e0b;
+    --c-lodging:#8b5cf6;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",Roboto,sans-serif;
+    font-size:14px;line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* ---------- 顶栏 ---------- */
+  .topbar{
+    max-width:1560px;margin:0 auto;padding:20px 20px 4px;
+    display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  }
+  .topbar h1{
+    margin:0;font-size:18px;font-weight:650;letter-spacing:.6px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .topbar h1 .mark{
+    width:10px;height:18px;border-radius:2px;background:var(--primary);
+    box-shadow:6px 0 0 -3px var(--accent);display:inline-block;
+  }
+  .topbar .sub{color:var(--faint);font-size:12.5px;letter-spacing:.2px;}
+  /* ---------- 布局 ---------- */
+  .layout{
+    max-width:1560px;margin:0 auto;padding:12px 20px 0;
+    display:grid;grid-template-columns:290px minmax(0,1fr) 344px;
+    gap:14px;align-items:start;
+  }
+  .panel{
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:var(--radius);box-shadow:0 1px 2px rgba(15,23,42,.05);
+    overflow:hidden;
+  }
+  .panel-head{
+    padding:11px 14px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    font-size:12.5px;font-weight:650;letter-spacing:.4px;color:#334155;
+  }
+  .panel-head .meta{font-weight:500;color:var(--faint);font-size:11.5px;letter-spacing:0;}
+  .map-head-right{display:flex;align-items:center;gap:10px;min-width:0;}
+  .seg.mini{border-radius:5px;flex:0 0 auto;}
+  .seg.mini button{padding:3px 10px;font-size:11px;line-height:1.5;}
+  .seg.mini[hidden]{display:none;}
+  .panel-body{padding:14px;}
+  /* ---------- 表单 ---------- */
+  .field{margin-bottom:15px;}
+  .field > label{
+    display:block;font-size:12px;font-weight:600;color:#475569;
+    margin-bottom:6px;letter-spacing:.3px;
+  }
+  input[type=text]{
+    width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);
+    font:inherit;font-size:13.5px;color:var(--text);background:#fff;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  input[type=text]:focus{
+    outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.13);
+  }
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:var(--radius);
+    background:linear-gradient(to right,#3b82f6 0%,#3b82f6 var(--p,44%),#e5e7eb var(--p,44%),#e5e7eb 100%);
+    outline:none;margin:8px 0 2px;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:#fff;border:2px solid var(--primary);cursor:pointer;
+    box-shadow:0 1px 3px rgba(15,23,42,.22);transition:transform .12s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.14);}
+  input[type=range]::-moz-range-thumb{
+    width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid var(--primary);
+    cursor:pointer;box-shadow:0 1px 3px rgba(15,23,42,.22);
+  }
+  .range-scale{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);}
+  /* ---------- 输入联想 ---------- */
+  .tip-field{position:relative;}
+  .tip-list{
+    position:absolute;left:0;right:0;top:100%;z-index:30;margin-top:3px;
+    background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+    box-shadow:0 10px 24px rgba(15,23,42,.14);max-height:236px;overflow-y:auto;
+  }
+  .tip-list[hidden]{display:none;}
+  .tip-item{
+    padding:7px 10px;cursor:pointer;font-size:12.5px;display:flex;
+    justify-content:space-between;gap:10px;align-items:baseline;
+    border-bottom:1px solid #f1f5f9;
+  }
+  .tip-item:last-child{border-bottom:0;}
+  .tip-item:hover,.tip-item.on{background:#eff6ff;}
+  .tip-item .t-name{
+    font-weight:600;color:#0f172a;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .tip-item .t-dist{flex:0 0 auto;font-size:10.5px;color:var(--faint);max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tip-item .t-same{color:var(--primary);font-weight:700;}
+  .tip-empty{padding:9px 10px;font-size:12px;color:var(--faint);}
+  .seg{display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:#f8fafc;}
+  .seg button{
+    flex:1;padding:8px 0;border:0;border-right:1px solid var(--border);
+    background:transparent;font:inherit;font-size:13px;color:#475569;cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  .seg button:last-child{border-right:0;}
+  .seg button:hover{background:#eef2f7;}
+  .seg button.active{background:var(--primary);color:#fff;font-weight:600;}
+  .seg button.active:hover{background:var(--primary-dark);}
+  .btn{
+    display:block;width:100%;padding:11px 14px;border:0;border-radius:var(--radius);
+    background:var(--primary);color:#fff;font:inherit;font-size:14px;font-weight:600;
+    letter-spacing:.5px;cursor:pointer;transition:background .15s, transform .08s;
+  }
+  .btn:hover{background:var(--primary-dark);}
+  .btn:active{transform:translateY(1px);}
+  /* ---------- 预算条 ---------- */
+  .budget{margin-top:18px;padding-top:14px;border-top:1px dashed var(--border);}
+  .budget-head{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:#475569;font-weight:600;margin-bottom:8px;}
+  .budget-head .amt{color:var(--text);font-variant-numeric:tabular-nums;font-size:13px;}
+  .bar{height:8px;background:#e5e7eb;border-radius:var(--radius);overflow:hidden;}
+  .bar-fill{
+    height:100%;width:0;background:#94a3b8;border-radius:var(--radius);
+    transition:width .55s cubic-bezier(.4,0,.2,1), background .3s;
+  }
+  .bar-fill.warn{background:var(--accent);}
+  .budget-note{margin-top:7px;font-size:11.5px;color:var(--faint);}
+  .budget-note.warn{color:var(--accent);font-weight:600;}
+  /* ---------- 地图 ---------- */
+  .map-wrap{position:relative;background:#f8f9fa;overflow:hidden;}
+  svg#map{display:block;width:100%;height:auto;cursor:grab;touch-action:none;}
+  svg#map.dragging{cursor:grabbing;}
+  /* 两种地图互斥显示：用 data-mode 控制，不依赖 hidden 属性。
+     注意 <svg> 不是 HTMLElement，没有 hidden 这个 IDL 属性，
+     直接写 svg.hidden = true 只会挂一个无效的 JS 属性上去。 */
+  .map-wrap[data-mode="tile"] > svg#map{display:none;}
+  .map-wrap[data-mode="svg"] > .tile-map{display:none;}
+  .panel-foot{
+    padding:8px 14px;border-top:1px solid var(--border);background:#fbfcfe;
+    font-size:11.5px;color:var(--muted);line-height:1.6;
+  }
+  .panel-foot b{color:#334155;font-weight:600;}
+  .tl-day{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    writing-mode:vertical-rl;text-orientation:mixed;
+    font-size:11px;font-weight:700;color:var(--faint);letter-spacing:2px;
+    padding:0 3px;border-right:1px dashed var(--border);
+  }
+  .tl-section{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    writing-mode:vertical-rl;text-orientation:mixed;
+    font-size:11.5px;font-weight:700;color:var(--primary);letter-spacing:3px;
+    padding:0 7px;margin-right:5px;background:#eff6ff;border-radius:5px;
+  }
+  .legend{
+    position:absolute;left:12px;bottom:12px;background:rgba(255,255,255,.92);
+    border:1px solid var(--border);border-radius:var(--radius);padding:6px 9px;
+    display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+    box-shadow:0 1px 3px rgba(15,23,42,.06);backdrop-filter:blur(2px);
+  }
+  .legend span{display:flex;align-items:center;gap:5px;}
+  .legend i{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  /* 图例字号分级：景点/餐饮/住宿 > 交通方式 > 医疗 */
+  .legend .lg{font-weight:700;color:#0f172a;border-radius:4px;padding:1px 7px;line-height:1.6;}
+  .legend .lg-hot{background:#fde047;font-size:12px;}
+  .legend .lg-transport{background:#93c5fd;font-size:11px;}
+  .legend .lg-medical{background:#fca5a5;font-size:10.5px;}
+  .legend .lg i{width:7px;height:7px;}
+  /* SVG 元素 */
+  .node{cursor:pointer;}
+  .node .dot,.node .halo{transition:transform .18s ease,opacity .18s ease;transform-box:fill-box;transform-origin:center;}
+
+  /* 节点抽稀：过密的次要节点缩小并隐藏标签；悬停或选中即恢复。
+     这几条必须排在 :hover / .active 之前，同优先级下后者才能覆盖。 */
+  .node.minor .dot{transform:scale(.66);opacity:.62;}
+  .node.minor .halo{opacity:.1;transform:scale(.7);}
+  .node.minor .node-badge,.node.minor .node-label{opacity:0;}
+  .node:hover .dot{transform:scale(1.3);opacity:1;}
+  .node:hover .halo{transform:scale(1.55);opacity:.4;}
+  .node:hover .node-badge,.node:hover .node-label{opacity:1;}
+  .node.active .dot{transform:scale(1.32);opacity:1;}
+  .node.active .node-badge,.node.active .node-label{opacity:1;}
+
+  .node .ring{opacity:0;transform-box:fill-box;transform-origin:center;}
+  .node.active .ring{opacity:.9;animation:spin 9s linear infinite;}
+  .node:focus{outline:none;}
+  .node:focus-visible .dot{stroke:#0f172a;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* 地点标签分级：景点/餐饮/住宿（黄底黑字）> 交通（蓝底黑字）> 底图注记（已由 ltype 剥离） */
+  .node-badge{stroke:rgba(15,23,42,.18);stroke-width:.5;pointer-events:none;transition:opacity .18s;}
+  .node-badge.lb-hot{fill:#fde047;}
+  .node-badge.lb-transport{fill:#93c5fd;}
+  .node-badge.lb-medical{fill:#fca5a5;}
+  .node-label{
+    font-size:11px;font-weight:650;fill:#0f172a;pointer-events:none;transition:opacity .18s;
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  }
+
+  /* 路线：发光实线 + 流光动画 */
+  .route-flow{animation:flowDash 2.2s linear infinite;}
+  @keyframes flowDash{from{stroke-dashoffset:0;}to{stroke-dashoffset:-112;}}
+
+  /* 路段中点：方向箭头 + 交通方式与耗时 */
+  .leg-arrow{fill:#1d4ed8;stroke:#ffffff;stroke-width:1;stroke-linejoin:round;}
+  .leg-label{
+    font-size:10.5px;font-weight:650;fill:#1e40af;text-anchor:middle;pointer-events:none;
+    paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round;
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  /* ---------- 详情面板 ---------- */
+  .detail-body{padding:14px;min-height:240px;}
+  .detail-empty{color:var(--faint);font-size:13px;text-align:center;padding:56px 12px;line-height:1.9;}
+  .detail-empty .big{display:block;font-size:26px;margin-bottom:8px;opacity:.55;}
+  .detail-card{animation:fadeUp .3s ease both;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(9px);}to{opacity:1;transform:none;}}
+  .dc-top{display:flex;gap:11px;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--border);}
+  .dc-icon{
+    width:44px;height:44px;flex:0 0 44px;border-radius:var(--radius);
+    display:flex;align-items:center;justify-content:center;font-size:21px;
+    border:1px solid var(--border);
+  }
+  .dc-title{min-width:0;}
+  .dc-type{font-size:11px;font-weight:600;letter-spacing:.6px;padding:1px 7px;border-radius:3px;display:inline-block;margin-bottom:3px;}
+  .dc-name{font-size:15px;font-weight:650;line-height:1.35;word-break:break-word;}
+  .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:13px 0;}
+  .meta-item{background:#f8fafc;border:1px solid var(--border);border-radius:var(--radius);padding:7px 9px;}
+  .meta-item b{display:block;font-size:10.5px;color:var(--faint);font-weight:600;letter-spacing:.5px;}
+  .meta-item span{font-size:13px;color:var(--text);font-variant-numeric:tabular-nums;}
+  .sec-title{font-size:11.5px;font-weight:650;color:#475569;letter-spacing:.6px;margin:14px 0 6px;display:flex;align-items:center;gap:6px;}
+  .sec-title::before{content:"";width:3px;height:11px;border-radius:2px;background:var(--primary);display:inline-block;}
+  .dc-desc{font-size:13px;color:#334155;}
+  .tip-box{
+    background:#fff7ed;border:1px solid #fed7aa;border-left:3px solid var(--accent);
+    border-radius:var(--radius);padding:9px 11px;font-size:12.5px;color:#7c2d12;
+  }
+  .real-box{
+    background:#f0f7ff;border:1px solid #bfdbfe;border-left:3px solid var(--primary);
+    border-radius:var(--radius);padding:9px 11px;font-size:12.5px;color:#1e3a8a;
+    display:flex;flex-direction:column;gap:4px;word-break:break-word;
+  }
+  .comment{border-top:1px solid var(--border);padding:9px 0 3px;display:flex;gap:9px;}
+  .avatar{
+    width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:#e2e8f0;color:#475569;
+    font-size:11px;font-weight:650;display:flex;align-items:center;justify-content:center;
+  }
+  .cm-body{min-width:0;flex:1;}
+  .cm-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .cm-name{font-size:12px;font-weight:650;color:#334155;}
+  .cm-stars{font-size:10.5px;color:var(--accent);letter-spacing:1px;}
+  .cm-text{font-size:12.5px;color:#475569;}
+  .cm-date{font-size:10.5px;color:var(--faint);}
+  /* ---------- 时间轴 ---------- */
+  .timeline-wrap{max-width:1560px;margin:10px auto 0;padding:0 20px 22px;}
+  /* 时间轴面板：上下留白收紧，让标题贴近卡片 */
+  .timeline-wrap .panel-head{padding:8px 14px;}
+  .tl-body{padding:6px 12px 4px;}
+  .timeline{
+    display:flex;gap:10px;overflow-x:auto;padding:2px 2px 10px;scroll-behavior:smooth;
+    align-items:stretch;min-height:0;
+  }
+  /* 滚动行里的子项绝不能被压缩：否则长文本会逐字换行，把整行撑得极高 */
+  .timeline > *{flex:0 0 auto;}
+  .timeline::-webkit-scrollbar{height:8px;}
+  .timeline::-webkit-scrollbar-track{background:#eef1f5;border-radius:6px;}
+  .timeline::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px;}
+  .timeline::-webkit-scrollbar-thumb:hover{background:#94a3b8;}
+  .tl-card{
+    flex:0 0 auto;width:176px;background:#fff;border:1px solid var(--border);
+    border-left:4px solid #cbd5e1;border-radius:var(--radius);padding:9px 11px;
+    cursor:pointer;text-align:left;font:inherit;color:inherit;
+    transition:transform .16s, box-shadow .16s, border-color .16s;
+  }
+  .tl-card:hover{transform:translateY(-2px);box-shadow:0 5px 14px rgba(15,23,42,.09);}
+  .tl-card:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(59,130,246,.2);}
+  .tl-card.active{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.14);transform:translateY(-2px);}
+  .tl-time{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums;letter-spacing:.4px;}
+  .tl-name{font-size:12.5px;font-weight:600;margin:3px 0 5px;line-height:1.4;word-break:break-word;}
+  .tl-cost{font-size:12.5px;font-weight:650;color:#334155;font-variant-numeric:tabular-nums;}
+  .tl-card.active .tl-cost{color:var(--primary);}
+  .tl-stay{font-size:10px;color:var(--faint);margin-top:1px;}
+  .modal textarea{
+    width:100%;min-height:96px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:12px;word-break:break-all;
+  }
+  /* ---------- 真实瓦片地图 ---------- */
+  .tile-map{
+    position:relative;width:100%;aspect-ratio:900 / 620;min-height:340px;
+    overflow:hidden;background:#e9edf1;cursor:grab;touch-action:none;
+    user-select:none;-webkit-user-select:none;
+  }
+  .tile-map[hidden]{display:none;}
+  .tile-map.dragging{cursor:grabbing;}
+  .tile-layer{
+    position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;
+    /* 背景虚化：底图退成低饱和的浅背景，路线与节点才是主角 */
+    filter:saturate(.42) contrast(.94) brightness(1.06) blur(.4px);
+    opacity:.6;
+  }
+  .tile-layer img{
+    position:absolute;width:256px;height:256px;display:block;border:0;
+    pointer-events:none;-webkit-user-drag:none;
+  }
+  .tile-overlay{position:absolute;left:0;top:0;pointer-events:none;}
+  .tile-overlay .node{pointer-events:auto;}
+
+  /* ---------- 地图工具 / 比例尺 / 提示 ---------- */
+  .map-tools{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px;z-index:5;}
+  .map-tools button{
+    width:32px;height:32px;border:1px solid var(--border);background:rgba(255,255,255,.95);
+    border-radius:var(--radius);font:inherit;font-size:16px;line-height:1;color:#334155;
+    cursor:pointer;box-shadow:0 1px 3px rgba(15,23,42,.14);
+    transition:background .15s,border-color .15s;
+  }
+  .map-tools button:hover{background:#fff;border-color:#94a3b8;}
+  .map-tools button:active{transform:translateY(1px);}
+  .map-hint{
+    position:absolute;left:12px;top:12px;z-index:5;pointer-events:none;
+    font-size:11px;color:#475569;background:rgba(255,255,255,.9);
+    border:1px solid var(--border);border-radius:var(--radius);padding:3px 8px;
+  }
+  /* 驻点漫游下的城际 / 市内视图切换 */
+  .map-scenes{
+    position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:6;
+    display:flex;background:rgba(255,255,255,.95);border:1px solid var(--border);
+    border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 4px rgba(15,23,42,.14);
+  }
+  .map-scenes[hidden]{display:none;}
+  .map-scenes button{
+    border:0;border-right:1px solid var(--border);background:transparent;
+    font:inherit;font-size:11.5px;color:#475569;padding:5px 12px;cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  .map-scenes button:last-child{border-right:0;}
+  .map-scenes button:hover{background:#eef2f7;}
+  .map-scenes button.active{background:var(--primary);color:#fff;font-weight:600;}
+  .scale-bar{
+    position:absolute;right:12px;bottom:12px;z-index:5;pointer-events:none;
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+    font-size:10.5px;color:#334155;text-shadow:0 0 3px #fff,0 0 3px #fff;
+  }
+  .scale-bar[hidden]{display:none;}
+  .scale-bar i{display:block;height:6px;border:1px solid #334155;border-top:0;background:rgba(255,255,255,.55);}
+
+  /* ---------- 评论 / 路线库 ---------- */
+  .cs-wrap{max-width:1560px;margin:14px auto 0;padding:0 20px 34px;}
+  .cs-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:14px;align-items:start;}
+  .cs-col{display:flex;flex-direction:column;gap:14px;}
+  .list-body{padding:12px;max-height:430px;overflow-y:auto;}
+  .cm-list{max-height:460px;overflow-y:auto;padding-right:4px;}
+  .list-body::-webkit-scrollbar,.cm-list::-webkit-scrollbar{width:8px;}
+  .list-body::-webkit-scrollbar-track,.cm-list::-webkit-scrollbar-track{background:#eef1f5;border-radius:6px;}
+  .list-body::-webkit-scrollbar-thumb,.cm-list::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px;}
+  .list-body::-webkit-scrollbar-thumb:hover,.cm-list::-webkit-scrollbar-thumb:hover{background:#94a3b8;}
+  .empty-tip{color:var(--faint);font-size:12.5px;text-align:center;padding:26px 8px;line-height:1.9;}
+  .btn.dark{background:#334155;margin-top:9px;font-size:13px;padding:9px 14px;}
+  .btn.dark:hover{background:#1e293b;}
+
+  /* 评论表单 */
+  .cm-form{border:1px solid var(--border);border-radius:var(--radius);padding:11px;background:#fbfcfe;margin-bottom:6px;}
+  .cm-form-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .cm-form-row input[type=text]{flex:1;min-width:0;}
+  .file-btn{
+    flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;
+    font-size:12.5px;color:#334155;background:#fff;border:1px solid var(--border);
+    border-radius:var(--radius);padding:7px 11px;transition:background .15s,border-color .15s;
+  }
+  .file-btn:hover{background:#eef2f7;border-color:#cbd5e1;}
+  textarea{
+    width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);
+    font:inherit;font-size:13.5px;color:var(--text);background:#fff;resize:vertical;min-height:66px;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.13);}
+  .cm-preview{display:flex;align-items:center;gap:10px;margin-top:9px;}
+  .cm-preview[hidden]{display:none;}
+  .cm-preview img{width:76px;height:76px;object-fit:cover;border-radius:var(--radius);border:1px solid var(--border);}
+  .cm-form-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;}
+  .cm-form-actions .hint{font-size:11px;color:var(--faint);}
+  .btn.small{width:auto;padding:7px 18px;font-size:13px;}
+
+  /* ---------- 时间轴：可拖拽重排 + 段间交通信息 ---------- */
+  .tl-hint{font-size:11px;color:var(--faint);margin-bottom:6px;}
+  .tl-group{
+    flex:0 0 auto;display:flex;align-items:center;gap:8px;
+    cursor:grab;touch-action:none;border-radius:var(--radius);
+    transition:opacity .15s,box-shadow .15s;
+  }
+  .tl-group.dragging{opacity:.55;cursor:grabbing;box-shadow:0 6px 18px rgba(59,130,246,.3);}
+  /* 两段式布局里「路线导航」的城际两端位置固定，不可拖动 */
+  .tl-group[data-section="inter"]{cursor:default;}
+  .tl-group[data-section="inter"]:hover{border-color:var(--border);box-shadow:none;}
+  .timeline.reordering .tl-day,.timeline.reordering .tl-section{opacity:.3;}
+  .tl-leg{
+    flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;
+    width:78px;color:var(--faint);font-size:10px;
+  }
+  .tl-leg-arrow{font-size:12px;color:#cbd5e1;line-height:1;}
+  .tl-leg-lbl{
+    background:#eff6ff;color:#1e40af;border-radius:3px;padding:1px 6px;
+    font-weight:650;font-size:10px;white-space:nowrap;
+  }
+  .tl-leg-km{font-size:9.5px;color:var(--faint);white-space:nowrap;}
+  .tl-sum{
+    font-size:11px;color:var(--muted);background:#f8fafc;border:1px solid var(--border);
+    border-radius:var(--radius);padding:5px 10px;margin:4px 2px 2px;line-height:1.65;
+    display:block;width:auto;
+  }
+  .tl-sum:empty{display:none;}
+  .tl-sum b{color:#334155;font-weight:650;}
+
+  /* 评论条目 */
+  .cm-item{display:flex;gap:10px;padding:11px 2px;border-top:1px solid var(--border);}
+  .cm-item:first-child{border-top:0;}
+  .cm-item .avatar{width:32px;height:32px;flex:0 0 32px;font-size:12px;}
+  .cm-main{flex:1;min-width:0;}
+  .cm-row{display:flex;align-items:baseline;gap:8px;}
+  .cm-user{font-size:12.5px;font-weight:650;color:#334155;}
+  .cm-time{font-size:10.5px;color:var(--faint);}
+  .cm-del{
+    margin-left:auto;border:0;background:transparent;color:var(--faint);cursor:pointer;
+    font:inherit;font-size:11px;padding:2px 5px;border-radius:3px;transition:color .15s,background .15s;
+  }
+  .cm-del:hover{color:var(--accent);background:#fff7ed;}
+  .cm-content{font-size:13px;color:#334155;white-space:pre-wrap;word-break:break-word;margin-top:2px;}
+  .cm-thumb{
+    margin-top:8px;max-width:200px;max-height:160px;border-radius:var(--radius);
+    border:1px solid var(--border);cursor:zoom-in;display:block;object-fit:cover;
+  }
+
+  /* 路线卡片 */
+  .rt-card{
+    border:1px solid var(--border);border-radius:var(--radius);padding:10px 11px;background:#fff;
+    transition:box-shadow .16s,border-color .16s;
+  }
+  .rt-card + .rt-card{margin-top:9px;}
+  .rt-card:hover{box-shadow:0 4px 12px rgba(15,23,42,.08);border-color:#cbd5e1;}
+  .rt-card.current{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.12);}
+  .rt-head{display:flex;align-items:center;gap:8px;justify-content:space-between;}
+  .rt-author{display:flex;align-items:center;gap:7px;min-width:0;}
+  .rt-author .avatar{width:22px;height:22px;flex:0 0 22px;font-size:10.5px;}
+  .rt-route{font-size:13.5px;font-weight:650;letter-spacing:.2px;min-width:0;word-break:break-word;}
+  .rt-route .arrow{color:var(--primary);margin:0 4px;}
+  .rt-badge{flex:0 0 auto;font-size:10.5px;font-weight:650;color:#475569;background:#f1f5f9;border-radius:3px;padding:1px 6px;}
+  .rt-meta{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:11.5px;color:#475569;margin-top:5px;font-variant-numeric:tabular-nums;}
+  .rt-meta b{font-weight:600;color:var(--faint);margin-right:3px;}
+  .rt-actions{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;}
+  .mini-btn{
+    font:inherit;font-size:12px;padding:5px 12px;border-radius:var(--radius);cursor:pointer;
+    border:1px solid var(--border);background:#f8fafc;color:#334155;
+    transition:background .15s,border-color .15s,color .15s;
+  }
+  .mini-btn:hover{background:#eef2f7;border-color:#cbd5e1;}
+  .mini-btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600;}
+  .mini-btn.primary:hover{background:var(--primary-dark);border-color:var(--primary-dark);}
+  .mini-btn.danger:hover{background:#fff1f2;border-color:#fecdd3;color:#e11d48;}
+
+  /* 评分 */
+  .rate{display:flex;align-items:center;gap:9px;margin-top:9px;flex-wrap:wrap;}
+  .stars{display:inline-flex;gap:1px;font-size:15px;line-height:1;cursor:pointer;user-select:none;}
+  .stars span{color:#cbd5e1;transition:color .12s,transform .12s;display:inline-block;}
+  .stars span.on{color:var(--accent);}
+  .stars span:hover{color:var(--accent);transform:scale(1.18);}
+  .rate-info{font-size:11.5px;color:#475569;font-variant-numeric:tabular-nums;}
+
+  /* 遮罩 / 弹窗 / 提示 */
+  .overlay{
+    position:fixed;inset:0;background:rgba(15,23,42,.74);z-index:80;padding:24px;
+    display:flex;align-items:center;justify-content:center;animation:fadeIn .16s ease;
+  }
+  .overlay[hidden]{display:none;}
+  .overlay img{max-width:min(92vw,1080px);max-height:86vh;border-radius:var(--radius);background:#fff;box-shadow:0 24px 60px rgba(0,0,0,.45);}
+  .modal{background:#fff;border-radius:var(--radius);padding:18px;width:100%;max-width:520px;box-shadow:0 24px 60px rgba(0,0,0,.35);animation:fadeUp .2s ease both;}
+  .modal h3{margin:0 0 8px;font-size:14.5px;}
+  .modal p{margin:0 0 10px;font-size:12.5px;color:var(--muted);}
+  .modal input[type=text]{font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;}
+  @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(8px);
+    background:#0f172a;color:#fff;font-size:13px;padding:9px 18px;border-radius:var(--radius);
+    box-shadow:0 10px 26px rgba(15,23,42,.3);opacity:0;pointer-events:none;
+    transition:opacity .22s,transform .22s;z-index:90;max-width:82vw;text-align:center;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  /* ---------- 响应式 ---------- */
+  @media (max-width:1220px){
+    .layout{grid-template-columns:280px minmax(0,1fr);}
+    .detail-panel{grid-column:1 / -1;}
+    .cs-grid{grid-template-columns:1fr;}
+  }
+  @media (max-width:880px){
+    .layout{grid-template-columns:1fr;padding:12px 14px 0;}
+    .timeline-wrap{padding:12px 14px 26px;}
+    .cs-wrap{padding:12px 14px 30px;}
+    .topbar{padding:16px 14px 2px;}
+    .detail-body{min-height:0;}
+    .cm-form-actions{flex-direction:column;align-items:stretch;}
+    .cm-form-actions .hint{text-align:center;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1><span class="mark"></span>旅程拼图 · 路线规划器</h1>
+  <span class="sub">输入出发点与预算，一键拼出一条可执行的路线 · 数据为模拟生成</span>
+</header>
+
+<main class="layout">
+
+  <!-- ============ 左侧：控制面板 ============ -->
+  <aside class="panel control-panel">
+    <div class="panel-head"><span>行程参数</span><span class="meta">PLANNER</span></div>
+    <div class="panel-body">
+      <div class="field tip-field">
+        <label for="origin">出发地</label>
+        <input type="text" id="origin" value="武汉" placeholder="例如：武汉" autocomplete="off">
+        <div class="tip-list" id="originTips" hidden></div>
+      </div>
+      <div class="field tip-field">
+        <label for="dest">目的地</label>
+        <input type="text" id="dest" value="长沙" placeholder="例如：长沙" autocomplete="off">
+        <div class="tip-list" id="destTips" hidden></div>
+      </div>
+      <div class="field">
+        <label for="budget">预算 <span id="budgetLabel" style="color:var(--primary);float:right;font-variant-numeric:tabular-nums;">¥1000</span></label>
+        <input type="range" id="budget" min="200" max="2000" step="50" value="1000">
+        <div class="range-scale"><span>¥200</span><span>¥2000</span></div>
+      </div>
+      <div class="field">
+        <label>行程时长</label>
+        <div class="seg" id="seg">
+          <button type="button" data-hours="24">24h</button>
+          <button type="button" data-hours="48" class="active">48h</button>
+          <button type="button" data-hours="72">72h</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>数据源</label>
+        <div class="seg" id="srcSeg">
+          <button type="button" data-src="mock" class="active">模拟数据</button>
+          <button type="button" data-src="amap">真实数据</button>
+        </div>
+      </div>
+      <div class="field" id="keyField" hidden>
+        <label for="amapKey">高德 Web 服务 Key</label>
+        <input type="text" id="amapKey" placeholder="粘贴自己的 key（restapi 类型）" autocomplete="off" spellcheck="false">
+        <div class="range-scale"><span>仅保存在本机浏览器</span><span id="keyState"></span></div>
+      </div>
+      <button class="btn" id="generate">生成行程</button>
+
+      <button class="btn dark" id="importItinerary" type="button">导入分享路线</button>
+      <button class="btn dark" id="saveRoute">保存当前路线</button>
+      <button class="btn dark" id="shareCurrent" type="button">分享当前路线</button>
+
+      <div class="budget">
+        <div class="budget-head">
+          <span>预算消耗</span>
+          <span class="amt" id="budgetAmt">¥0 / ¥1000</span>
+        </div>
+        <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+        <div class="budget-note" id="budgetNote">尚未生成行程</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ 中间：地图 ============ -->
+  <section class="panel map-panel">
+    <div class="panel-head">
+      <span>路线图</span>
+      <span class="map-head-right">
+        <span class="seg mini" id="tileSeg" hidden>
+          <button type="button" data-ltype="1" class="active" title="仅地块：去掉铁路、高速公路与全部注记">极简</button>
+          <button type="button" data-ltype="3" title="地块 + 路网，无文字注记">路网</button>
+          <button type="button" data-ltype="8" title="纯色底图">纯色</button>
+          <button type="button" data-ltype="0" title="高德标准底图（含注记）">标准</button>
+        </span>
+        <span class="meta" id="mapMeta">—</span>
+      </span>
+    </div>
+    <div class="map-wrap" data-mode="svg">
+      <!-- 真实瓦片地图（真实数据模式） -->
+      <div class="tile-map" id="tileMap" hidden>
+        <div class="tile-layer" id="tileLayer"></div>
+        <svg class="tile-overlay" id="tileOverlay" aria-hidden="true"></svg>
+      </div>
+
+      <!-- 手绘抽象地图（模拟数据模式） -->
+      <svg id="map" viewBox="0 0 900 620" preserveAspectRatio="xMidYMid meet" role="img" aria-label="行程路线示意图"></svg>
+
+      <div class="map-hint">滚轮缩放 · 拖拽平移 · 双击复位</div>
+      <div class="map-scenes" id="sceneSwitch" hidden>
+        <button type="button" data-scene="inter" class="active">路线导航</button>
+        <button type="button" data-scene="city">景区漫游</button>
+      </div>
+      <div class="map-tools">
+        <button type="button" id="zoomIn" title="放大" aria-label="放大">＋</button>
+        <button type="button" id="zoomOut" title="缩小" aria-label="缩小">－</button>
+        <button type="button" id="zoomFit" title="适应路线" aria-label="适应路线">⤢</button>
+      </div>
+      <div class="scale-bar" id="scaleBar" hidden><i></i><span>—</span></div>
+
+      <div class="legend">
+        <span class="lg lg-hot"><i style="background:#22c55e"></i>景点</span>
+        <span class="lg lg-hot"><i style="background:#f59e0b"></i>餐饮</span>
+        <span class="lg lg-hot"><i style="background:#8b5cf6"></i>住宿</span>
+        <span class="lg lg-transport"><i style="background:#3b82f6"></i>交通</span>
+        <span class="lg lg-medical"><i style="background:#ef4444"></i>医疗</span>
+      </div>
+    </div>
+    <div class="panel-foot" id="routeNote">模拟数据模式：地点与时间为随机生成，仅用于演示。</div>
+  </section>
+
+  <!-- ============ 右侧：详情 ============ -->
+  <aside class="panel detail-panel">
+    <div class="panel-head"><span>地点详情</span><span class="meta">DETAIL</span></div>
+    <div class="detail-body" id="detailBody"></div>
+  </aside>
+
+</main>
+
+<!-- ============ 底部：时间轴 ============ -->
+<section class="timeline-wrap">
+  <div class="panel">
+    <div class="panel-head"><span>行程时间轴</span><span class="meta" id="tlMeta">—</span></div>
+    <div class="tl-body">
+      <div class="tl-hint" id="tlHint">横向拖动卡片可调整顺序 · 松手后自动重新规划路线</div>
+      <div class="timeline" id="timeline"></div>
+      <div class="tl-sum" id="tlSum"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 底部：评论 / 我的路线 / 社区路线 ============ -->
+<section class="cs-wrap">
+  <div class="cs-grid">
+
+    <!-- 路线评论 -->
+    <div class="panel">
+      <div class="panel-head"><span>路线评论</span><span class="meta" id="cmRouteMeta">—</span></div>
+      <div class="panel-body">
+        <div class="cm-form">
+          <div class="cm-form-row">
+            <input type="text" id="cmUser" placeholder="昵称（留空则随机生成）" maxlength="16" autocomplete="off">
+            <label class="file-btn" for="cmImage">📎 选择图片</label>
+            <input type="file" id="cmImage" accept="image/*" hidden>
+          </div>
+          <textarea id="cmText" placeholder="说说这条路线值不值得走…"></textarea>
+          <div class="cm-preview" id="cmPreview" hidden>
+            <img id="cmPreviewImg" alt="图片预览">
+            <button type="button" class="mini-btn danger" id="cmPreviewDel">移除图片</button>
+          </div>
+          <div class="cm-form-actions">
+            <span class="hint" id="cmHint">图片会压缩后保存在本机浏览器</span>
+            <button class="btn small" id="cmSubmit" type="button">发表评论</button>
+          </div>
+        </div>
+        <div class="cm-list" id="cmList"></div>
+      </div>
+    </div>
+
+    <div class="cs-col">
+      <!-- 我的路线 -->
+      <div class="panel">
+        <div class="panel-head"><span>我的路线</span><span class="meta" id="myMeta">0 条</span></div>
+        <div class="list-body" id="myList"></div>
+      </div>
+      <!-- 社区路线 -->
+      <div class="panel">
+        <div class="panel-head"><span>社区路线</span><span class="meta" id="communityMeta">0 条</span></div>
+        <div class="list-body" id="communityList"></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="overlay" id="overlay" hidden></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =========================================================
+   * 0. 基础常量
+   * =======================================================*/
+  var NS = 'http://www.w3.org/2000/svg';
+
+  var TYPE_META = {
+    transport : { color:'#3b82f6', icon:'🚄', label:'交通' },
+    attraction: { color:'#22c55e', icon:'🎡', label:'景点' },
+    food      : { color:'#f59e0b', icon:'🍜', label:'餐饮' },
+    lodging   : { color:'#8b5cf6', icon:'🏨', label:'住宿' },
+    medical   : { color:'#ef4444', icon:'🏥', label:'医疗' }
+  };
+
+  // 费用权重：交通最高，住宿次之，餐饮居中，景点/医疗最低
+  var WEIGHT = { transport:1.0, lodging:0.9, food:0.42, attraction:0.3, medical:0.22 };
+
+  var NAME_POOL = {
+    attraction: ['城市美术馆','江畔公园','老城古巷','山顶观景台','历史博物馆','滨江步道',
+                 '钟楼广场','湿地绿道','书院旧址','文创园区','天台花园','洲头公园'],
+    food: ['本地小吃街','老字号面馆','巷口烧烤','江景咖啡馆','早茶铺子','夜市糖水铺',
+           '菜市小吃摊','精酿小酒馆','街角烘焙坊','码头鱼市排档']
+  };
+
+  var DESC_POOL = {
+    transport: [
+      '列车准点驶出站台，窗外的高楼慢慢被田野取代。选了靠窗的位置，沿途能看到几段河湾。',
+      '这段路程是整趟旅行的开场白，车厢里人不算多，正好用来把接下来两天的路线过一遍。',
+      '换乘通道不长，跟着指示牌走大约五分钟就能到候车区，时间安排得比较从容。',
+      '进站安检很快，站内便利店和充电位都好找，适合当作一天的缓冲段。'
+    ],
+    attraction: [
+      '这里保留了旧城的尺度感，窄巷、青砖和晾衣杆交织在一起，是整条路线里最出片的一段。',
+      '傍晚光线斜照时会染成暖色，坐在台阶上看人来人往很舒服，不需要刻意安排活动。',
+      '展陈刚更新过一轮，动线设计合理，慢慢走完大约需要一个半小时。',
+      '视野很开阔，能看到对岸的天际线，风大的时候记得添件外套。'
+    ],
+    food: [
+      '老板把菜单写在黑板上，招牌菜每天限量，去晚了就只能看别人吃。',
+      '店面不大、翻台快，人均不高但味道扎实，是本地人会回头的那种店。',
+      '坐在靠窗的位置能看到街景，出餐大约十分钟，适合行程比较赶的时段。',
+      '调味偏家常，分量给得足，配上一碗汤刚好收尾。'
+    ],
+    lodging: [
+      '房间不大但干净，窗户朝内街，晚上很安静，走两步就有便利店。',
+      '前台 24 小时有人值守，行李可以免费寄存到当天傍晚。',
+      '离地铁口三百米左右，第二天出发去景点基本不用打车。'
+    ],
+    medical: [
+      '市区内的综合医院或社区卫生服务中心，行程中出现突发状况可就近处理。',
+      '位于主干道旁，24 小时急诊，常规药品在门口药店也能买到。',
+      '作为备用点位列入路线，正常情况下不需要前往。'
+    ]
+  };
+
+  var TIP_POOL = {
+    transport: [
+      '发车前 30 分钟到检票口就够，节假日建议再提前 20 分钟。',
+      '选座优先靠窗的 A / F 座，看风景更舒服。',
+      '把身份证放在随手能拿到的口袋，出站换乘会快很多。'
+    ],
+    attraction: [
+      '工作日上午人最少，午后两点开始排队。',
+      '从东门进、南门出可以少走大约一公里的回头路。',
+      '门口的自动售票机比人工窗口快很多。',
+      '带上充电宝，园区里共享充电柜经常被借空。'
+    ],
+    food: [
+      '避开 12:00–13:00 的用餐高峰，能省下至少二十分钟。',
+      '招牌菜需要现场点单，扫码菜单里不一定有。',
+      '两个人点三份足够，分量比看起来大。'
+    ],
+    lodging: [
+      '入住时问一句有没有高层房，通常可以免费升级。',
+      '退房时间 12:00，可以申请延迟到 14:00。',
+      '前台可以借到雨伞和转换插头，不用自己带。'
+    ],
+    medical: [
+      '提前存好酒店到最近医院的打车路线，以备不时之需。',
+      '随身带好医保卡或电子凭证，异地就医挂号会快一些。',
+      '常规药品建议在市区药店购买，比景区周边便宜。'
+    ]
+  };
+
+  var COMMENT_NAMES = ['阿然','小满','Luna','老周','橙子汽水','Nemo','十七','小鹿','阿吉','Winnie','柚子','大熊'];
+  var COMMENT_TEXTS = [
+    '按攻略来的，确实没踩雷，节奏刚刚好。',
+    '人有点多，不过还是值得来一次。',
+    '价格比想象中便宜，性价比很高。',
+    '建议早点到，下午就挤不进去了。',
+    '拍出来的照片比现场还好看，哈哈。',
+    '老板很热情，主动帮我们指了路。',
+    '整体不错，就是附近不太好停车。',
+    '第二次来了，还是喜欢这个角落。'
+  ];
+
+  /* =========================================================
+   * 1. 伪随机：相同输入 → 相同结果
+   * =======================================================*/
+  function hashStr(str) {
+    var h = 2166136261 >>> 0;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* =========================================================
+   * 2. 工具函数
+   * =======================================================*/
+  function el(tag, attrs) {
+    var e = document.createElementNS(NS, tag);
+    if (attrs) for (var k in attrs) if (Object.prototype.hasOwnProperty.call(attrs, k)) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+  function fmtTime(mins) {
+    var d = Math.floor(mins / 1440) + 1;
+    var m = ((mins % 1440) + 1440) % 1440;
+    return 'D' + d + ' ' + pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
+  }
+  function fmtDur(mins) {
+    var h = Math.floor(mins / 60), m = mins % 60;
+    if (h && m) return h + '小时' + m + '分';
+    if (h) return h + '小时';
+    return m + '分钟';
+  }
+  function yuan(n) { return '¥' + Math.round(n); }
+  function shortName(name, max) {
+    max = max || 8;
+    return name.length > max ? name.slice(0, max - 1) + '…' : name;
+  }
+
+  /* =========================================================
+   * 3. 模拟数据生成
+   * =======================================================*/
+  function buildMockPlan(input) {
+    var from = (input.from || '').trim() || '武汉';
+    var to   = (input.to   || '').trim() || '长沙';
+    var budget = input.budget;
+    var duration = input.duration;
+
+    var seed = hashStr(from + '|' + to + '|' + budget + '|' + duration);
+    var rng = mulberry32(seed);
+    var ri = function (a, b) { return a + Math.floor(rng() * (b - a + 1)); };
+    var pick = function (arr) { return arr[Math.floor(rng() * arr.length)]; };
+
+    // ---- 地点数量 ----
+    var n = duration === 24 ? 7 : duration === 48 ? 10 : 13;
+
+    // ---- 类型序列 ----
+    var kinds = new Array(n);
+    kinds[0] = 'transport-out';
+    kinds[n - 1] = 'transport-back';
+    var lodgingIdx = duration >= 48 ? Math.max(1, Math.round((n - 2) * 0.5)) : -1;
+    if (lodgingIdx > 0) kinds[lodgingIdx] = 'lodging';
+    for (var i = 1; i < n - 1; i++) {
+      if (kinds[i]) continue;
+      kinds[i] = rng() < 0.38 ? 'food' : 'attraction';
+    }
+
+    // ---- 名称 ----
+    var used = {};
+    function takeName(pool, allowCityPrefix) {
+      for (var t = 0; t < 40; t++) {
+        var base = pick(pool);
+        var nm = (allowCityPrefix && rng() < 0.4) ? (to + '·' + base) : base;
+        if (!used[nm]) { used[nm] = 1; return nm; }
+      }
+      return pool[ri(0, pool.length - 1)] + ' ' + ri(2, 9) + '号';
+    }
+
+    var nodes = [];
+    for (var j = 0; j < n; j++) {
+      var kindCode = kinds[j];
+      var baseKind = kindCode.indexOf('transport') === 0 ? 'transport' : kindCode;
+      var meta = TYPE_META[baseKind];
+      var name, typeLabel;
+
+      if (kindCode === 'transport-out') {
+        name = '高铁 ' + from + ' → ' + to;
+        typeLabel = '去程交通';
+      } else if (kindCode === 'transport-back') {
+        name = '高铁 ' + to + ' → ' + from;
+        typeLabel = '返程交通';
+      } else if (kindCode === 'lodging') {
+        name = (rng() < 0.5 ? to + '·' : '') + pick(['青年旅舍','设计民宿','老城客栈','快捷酒店']);
+        typeLabel = '住宿';
+      } else {
+        name = takeName(NAME_POOL[baseKind], true);
+        typeLabel = baseKind === 'food' ? '餐饮' : '景点';
+      }
+
+      nodes.push({
+        index: j,
+        kind: baseKind,
+        kindCode: kindCode,
+        typeLabel: typeLabel,
+        name: name,
+        icon: meta.icon,
+        color: meta.color,
+        weight: WEIGHT[baseKind]
+      });
+    }
+
+    // ---- 费用：按权重分配「分配总额」 ----
+    // 基准 88%，叠加种子浮动，使 90% 警示线真实可触发
+    var ratio = 0.88 + (rng() - 0.5) * 0.16;
+    ratio = Math.max(0.78, Math.min(0.97, ratio));
+    var allocated = Math.round(budget * ratio);
+
+    var wSum = nodes.reduce(function (s, x) { return s + x.weight; }, 0);
+    var acc = 0;
+    nodes.forEach(function (nd, idx) {
+      if (idx === nodes.length - 1) {
+        nd.cost = Math.max(0, allocated - acc);
+      } else {
+        nd.cost = Math.round(allocated * nd.weight / wSum);
+        acc += nd.cost;
+      }
+    });
+    // 校正舍入误差
+    var total = nodes.reduce(function (s, x) { return s + x.cost; }, 0);
+    if (total !== allocated) nodes[nodes.length - 1].cost += (allocated - total);
+
+    // ---- 时间：D1 07:30 出发，间隔 1~3 小时，跨天自动处理 ----
+    var START = 7 * 60 + 30;
+    var durations = nodes.map(function (nd) {
+      if (nd.kind === 'transport') return ri(120, 180);
+      if (nd.kind === 'lodging')   return 480;
+      if (nd.kind === 'food')      return ri(60, 90);
+      return ri(90, 150);
+    });
+
+    var target = duration * 60 - 45; // 末段留 45 分钟缓冲
+    var sumD = durations.reduce(function (a, b) { return a + b; }, 0);
+    var gaps = [];
+    for (var g = 0; g < n - 1; g++) gaps.push(ri(60, 180));
+    var sumG = gaps.reduce(function (a, b) { return a + b; }, 0);
+    var gapBudget = Math.max(target - sumD, (n - 1) * 30);
+    var scale = gapBudget / sumG;
+    gaps = gaps.map(function (v) { return Math.max(20, Math.round(v * scale / 5) * 5); });
+
+    var cursor = START;
+    nodes.forEach(function (nd, idx) {
+      nd.start = cursor;
+      nd.duration = durations[idx];
+      nd.end = cursor + nd.duration;
+      cursor = nd.end + (gaps[idx] || 0);
+      // 记录到上一站的移动方式与耗时，供路线中点标注使用
+      nd.legFromPrev = idx > 0
+        ? { mode: 'walking', minutes: gaps[idx - 1] || 0, km: 0, approx: true }
+        : null;
+    });
+    var totalSpan = nodes[n - 1].end - START;
+
+    // ---- 文案：每个地点预置 3~5 条，随机选用 ----
+    nodes.forEach(function (nd) {
+      var dp = DESC_POOL[nd.kind], tp = TIP_POOL[nd.kind];
+      var dCount = Math.min(dp.length, ri(3, 5));
+      var tCount = Math.min(tp.length, ri(3, 5));
+      nd.desc = dp[ri(0, dCount - 1)];
+      nd.tip  = tp[ri(0, tCount - 1)];
+
+      var cCount = ri(2, 3);
+      var usedNames = {};
+      nd.comments = [];
+      for (var c = 0; c < cCount; c++) {
+        var cname = pick(COMMENT_NAMES);
+        var guard = 0;
+        while (usedNames[cname] && guard++ < 20) cname = pick(COMMENT_NAMES);
+        usedNames[cname] = 1;
+        nd.comments.push({
+          name: cname,
+          rating: ri(4, 5),
+          text: pick(COMMENT_TEXTS),
+          date: '2024-' + pad2(ri(1, 12)) + '-' + pad2(ri(1, 28))
+        });
+      }
+    });
+
+    // ---- 地图坐标：蛇形网格 + 随机偏移 ----
+    var mapRng = mulberry32(hashStr(seed + '::map'));
+    var mr = function (a, b) { return a + mapRng() * (b - a); };
+    var cols = n <= 7 ? 4 : 5;
+    var rows = Math.ceil(n / cols);
+    var PADX = 105, PADY = 95;
+    var stepX = cols > 1 ? (900 - PADX * 2) / (cols - 1) : 0;
+    var stepY = rows > 1 ? (620 - PADY * 2) / (rows - 1) : 0;
+
+    nodes.forEach(function (nd, idx) {
+      var row = Math.floor(idx / cols);
+      var colInRow = idx % cols;
+      var col = (row % 2 === 0) ? colInRow : (cols - 1 - colInRow);
+      var x = PADX + col * stepX + mr(-24, 24);
+      var y = (rows > 1 ? PADY + row * stepY : 310) + mr(-22, 22);
+      nd.x = Math.max(50, Math.min(850, x));
+      nd.y = Math.max(50, Math.min(570, y));
+    });
+
+    // 驻点漫游布局：去程锚在出发地、返程锚在目的地，市内节点收成一圈，形成两段视图
+    nodes[0].x = 118; nodes[0].y = 118;
+    var lastNode = nodes.length - 1;
+    nodes[lastNode].x = 690; nodes[lastNode].y = 500;
+    var cxc = 640, cyc = 400, rr = 150;
+    for (var hi = 1; hi < lastNode; hi++) {
+      var ang = (hi - 1) / Math.max(1, lastNode - 1) * Math.PI * 2;
+      nodes[hi].x = cxc + Math.cos(ang) * rr * (0.7 + mr(0, 0.5));
+      nodes[hi].y = cyc + Math.sin(ang) * rr * (0.7 + mr(0, 0.5));
+    }
+    nodes[0].section = 'inter';
+    nodes[lastNode].section = 'inter';
+    for (var si = 1; si < lastNode; si++) nodes[si].section = 'city';
+
+    return {
+      from: from, to: to, budget: budget, duration: duration,
+      seed: seed, nodes: nodes,
+      allocated: allocated, ratio: ratio,
+      totalSpan: totalSpan,
+      mode: 'hub',
+      scenes: [
+        { id: 'inter', label: '路线导航', indices: [0, nodes.length - 1] },
+        { id: 'city',  label: '景区漫游', indices: citySceneIndices(nodes.length - 1) }
+      ]
+    };
+  }
+
+  /* =========================================================
+   * 3.5 真实数据接入（高德 Web 服务 API）
+   *     —— 输出与 buildMockPlan 完全相同的 plan 结构，
+   *        因此地图/时间轴/详情/预算条等 UI 层无需改动。
+   * =======================================================*/
+  var AMAP_BASE = 'https://restapi.amap.com/v3/';
+  var LS_AMAP_KEY = 'jp.amapKey.v1';
+
+  function amapKey() {
+    var el = document.getElementById('amapKey');
+    var v = el ? String(el.value || '').trim() : '';
+    if (v) return v;
+    return lsGet(LS_AMAP_KEY, '') || '';
+  }
+
+  function qs(obj) {
+    return Object.keys(obj).filter(function (k) {
+      return obj[k] !== undefined && obj[k] !== null && obj[k] !== '';
+    }).map(function (k) {
+      return encodeURIComponent(k) + '=' + encodeURIComponent(obj[k]);
+    }).join('&');
+  }
+
+  // fetch 优先，失败（CORS/网络）自动退化为 JSONP
+  function httpJSON(url, timeout) {
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timer = setTimeout(function () {
+        if (done) return; done = true;
+        if (ctrl) ctrl.abort();
+        reject(new Error('TIMEOUT'));
+      }, timeout || 12000);
+      var opts = { method: 'GET' };
+      if (ctrl) opts.signal = ctrl.signal;
+      fetch(url, opts).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function (d) {
+        if (done) return; done = true; clearTimeout(timer); resolve(d);
+      }).catch(function (e) {
+        if (done) return; done = true; clearTimeout(timer); reject(e);
+      });
+    });
+  }
+
+  function jsonp(url, timeout) {
+    return new Promise(function (resolve, reject) {
+      var cb = '__amap_cb_' + Math.floor(Math.random() * 1e9);
+      var s = document.createElement('script');
+      var done = false;
+      var timer = setTimeout(function () { finish(new Error('TIMEOUT')); }, timeout || 12000);
+      function finish(err, data) {
+        if (done) return; done = true;
+        clearTimeout(timer);
+        try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+        if (s.parentNode) s.parentNode.removeChild(s);
+        if (err) reject(err); else resolve(data);
+      }
+      window[cb] = function (data) { finish(null, data); };
+      s.onerror = function () { finish(new Error('SCRIPT_ERROR')); };
+      s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + cb;
+      document.body.appendChild(s);
+    });
+  }
+
+  function amapGet(path, params) {
+    var key = amapKey();
+    if (!key) return Promise.reject(new Error('NO_KEY'));
+    var url = AMAP_BASE + path + '?' + qs(Object.assign({ key: key, output: 'JSON' }, params));
+    return amapRaw(url).then(function (d) {
+      // 个人 Key 的 QPS 很低，撞到限流就地退避重试，不要往下降级到更糟的数据源
+      var info = String((d && d.info) || '');
+      if (d && String(d.status) !== '1' && /CUQPS|QPS|TOO_FREQUENT|LIMIT/i.test(info)) {
+        return new Promise(function (r) { setTimeout(r, 900); }).then(function () {
+          return httpJSON(url).catch(function () { return jsonp(url); });
+        });
+      }
+      return d;
+    });
+  }
+
+  // 所有高德请求统一排队：上一个结束后再等 AMAP_GAP 才开始下一个
+  var AMAP_GAP = 200;
+  var amapChain = Promise.resolve();
+
+  function amapRaw(url) {
+    var task = amapChain
+      .then(function () { return new Promise(function (res) { setTimeout(res, AMAP_GAP); }); })
+      .then(function () { return httpJSON(url).catch(function () { return jsonp(url); }); });
+    amapChain = task.then(function () {}, function () {});
+    return task;
+  }
+
+  function amapOk(d) {
+    if (!d || String(d.status) !== '1') {
+      var info = String((d && d.info) || '');
+      if (/INVALID_USER_KEY|USERKEY_PLAT_NOMATCH|INVALID_USER_SCODE|SERVICE_NOT_AVAILABLE/i.test(info)) {
+        throw new Error('KEY_INVALID');
+      }
+      if (/OVER_LIMIT|QUOTA|DAILY/i.test(info)) throw new Error('QUOTA');
+      throw new Error(info || 'AMAP_ERROR');
+    }
+    return d;
+  }
+
+  // 并发上限，避免触发 QPS 限制
+  function mapLimit(items, limit, fn) {
+    var out = new Array(items.length), cursor = 0;
+    function next() {
+      if (cursor >= items.length) return Promise.resolve();
+      var idx = cursor++;
+      return Promise.resolve(fn(items[idx], idx)).then(function (v) { out[idx] = v; return next(); });
+    }
+    var runners = [];
+    for (var i = 0; i < Math.min(limit, items.length); i++) runners.push(next());
+    return Promise.all(runners).then(function () { return out; });
+  }
+
+  // 「经度,纬度」字符串 → {lng, lat}
+  function parseLoc(s) {
+    var p = String(s || '').split(',');
+    return { lng: parseFloat(p[0]), lat: parseFloat(p[1]) };
+  }
+
+  function amapGeo(address) {
+    return amapGet('geocode/geo', { address: address }).then(function (d) {
+      amapOk(d);
+      var g = (d.geocodes || [])[0];
+      if (!g) throw new Error('NOT_FOUND:' + address);
+      var ll = parseLoc(g.location);
+      if (!isFinite(ll.lng) || !isFinite(ll.lat)) throw new Error('NOT_FOUND:' + address);
+      return {
+        name: address,
+        city: (typeof g.city === 'string' && g.city) ? g.city : address,
+        adcode: (typeof g.adcode === 'string' && g.adcode) ? g.adcode : '',
+        formatted: (typeof g.formatted_address === 'string' && g.formatted_address) ? g.formatted_address : address,
+        lng: ll.lng, lat: ll.lat
+      };
+    });
+  }
+
+  function amapPoi(opts, city, pages) {
+    var types = typeof opts === 'string' ? opts : (opts.types || '');
+    var keywords = (typeof opts === 'object' && opts.keywords) ? opts.keywords : '';
+    // 默认只在指定城市内搜；citylimit:false 时放开到全国
+    var citylimit = (typeof opts === 'object' && opts.citylimit === false) ? 'false' : 'true';
+    var reqs = [];
+    for (var p = 1; p <= (pages || 1); p++) {
+      reqs.push(amapGet('place/text', {
+        types: types, keywords: keywords, city: city, citylimit: citylimit,
+        offset: 25, page: p, extensions: 'all'
+      }).then(function (d) {
+        amapOk(d);
+        return (d.pois || []).map(function (poi) {
+          var ll = parseLoc(poi.location);
+          var biz = poi.biz_ext || {};
+          var photos = poi.photos || [];
+          return {
+            name: String(poi.name || ''),
+            type: typeof poi.type === 'string' ? poi.type : '',
+            address: typeof poi.address === 'string' ? poi.address : '',
+            tel: typeof poi.tel === 'string' ? poi.tel : '',
+            rating: (biz.rating !== undefined && biz.rating !== null && biz.rating !== '') ? String(biz.rating) : '',
+            refCost: (biz.cost !== undefined && biz.cost !== null && biz.cost !== '' && +biz.cost > 0) ? +biz.cost : 0,
+            photo: (photos[0] && photos[0].url) ? String(photos[0].url) : '',
+            lng: ll.lng, lat: ll.lat
+          };
+        });
+      }).catch(function () { return []; }));
+    }
+    return Promise.all(reqs).then(function (lists) {
+      var seen = {}, out = [];
+      lists.forEach(function (list) {
+        list.forEach(function (poi) {
+          if (!poi.name || !isFinite(poi.lng) || !isFinite(poi.lat) || seen[poi.name]) return;
+          seen[poi.name] = 1;
+          out.push(poi);
+        });
+      });
+      return out;
+    });
+  }
+
+  // 城际交通：同时问公共交通与驾车，取较快者排程，并把两个方案都摆出来。
+  // 高德路径规划不含高铁班次，公交方案常常是长途大巴，所以必须让用户看到两个数。
+  function amapInterCity(from, to) {
+    var transitP = amapGet('direction/transit/integrated', {
+      origin: from.lng + ',' + from.lat,
+      destination: to.lng + ',' + to.lat,
+      city: from.adcode, cityd: to.adcode, strategy: 0
+    }).then(function (d) {
+      amapOk(d);
+      var t = d.route && d.route.transits && d.route.transits[0];
+      if (!t) throw new Error('NO_TRANSIT');
+      return {
+        mode: 'transit',
+        minutes: Math.max(20, Math.round(+t.duration / 60)),
+        refCost: +t.cost > 0 ? +t.cost : 0,
+        distanceKm: +t.distance > 0 ? Math.round(+t.distance / 1000) : 0
+      };
+    }).catch(function () { return null; });
+
+    var driveP = amapGet('direction/driving', {
+      origin: from.lng + ',' + from.lat,
+      destination: to.lng + ',' + to.lat,
+      extensions: 'base'
+    }).then(function (d) {
+      amapOk(d);
+      var p = d.route && d.route.paths && d.route.paths[0];
+      if (!p) throw new Error('NO_ROUTE');
+      return {
+        mode: 'driving',
+        minutes: Math.max(20, Math.round(+p.duration / 60)),
+        refCost: +p.tolls > 0 ? +p.tolls : 0,
+        distanceKm: +p.distance > 0 ? Math.round(+p.distance / 1000) : 0
+      };
+    }).catch(function () { return null; });
+
+    return Promise.all([transitP, driveP]).then(function (r) {
+      var t = r[0], d = r[1];
+      if (!t && !d) throw new Error('NO_ROUTE');
+      var best = !t ? d : (!d ? t : (t.minutes <= d.minutes ? t : d));
+      best.alternatives = [];
+      if (t) best.alternatives.push({ mode: t.mode, minutes: t.minutes, km: t.distanceKm });
+      if (d) best.alternatives.push({ mode: d.mode, minutes: d.minutes, km: d.distanceKm });
+      return best;
+    });
+  }
+
+  function interNoteText(inter) {
+    if (!inter) return '';
+    if (inter.alternatives && inter.alternatives.length > 1) {
+      return '高德路径规划：' + inter.alternatives.map(function (a) {
+        return modeLabel(a.mode) + ' ' + fmtDur(a.minutes) + (a.km ? '（' + a.km + ' 公里）' : '');
+      }).join('；') + '　已按较快方案排程。注意高德路径规划不含高铁班次。';
+    }
+    return (inter.mode === 'driving' ? '驾车方案' : '公共交通方案') +
+           (inter.distanceKm ? ' · 约 ' + inter.distanceKm + ' 公里' : '');
+  }
+
+  function haversineKm(a, b) {
+    var R = 6371, rad = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+    var s = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+  }
+
+  // 城内移动耗时：直线距离 × 1.35 绕行系数 ÷ 4.5km/h 步行等效速度
+  function cityLegMinutes(a, b) {
+    var km = haversineKm(a, b) * 1.35;
+    return Math.max(10, Math.min(150, Math.round(km / 4.5 * 60 / 5) * 5));
+  }
+
+  // 贪心最近邻排序，得到一条不来回穿插的访问顺序
+  function nearestNeighborOrder(start, pois) {
+    var rest = pois.slice(), out = [], cur = start;
+    while (rest.length) {
+      var best = 0, bestD = Infinity;
+      for (var i = 0; i < rest.length; i++) {
+        var d = haversineKm(cur, rest[i]);
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      cur = rest.splice(best, 1)[0];
+      out.push(cur);
+    }
+    return out;
+  }
+
+  function amapErrorText(e) {
+    var m = String((e && e.message) || e);
+    if (m === 'NO_KEY') return '请先填写高德 Web 服务 Key';
+    if (m === 'KEY_INVALID') return 'Key 无效或类型不符（需 Web 服务 key）';
+    if (m === 'QUOTA') return '高德接口额度已用尽，请稍后再试';
+    if (m === 'TIMEOUT') return '高德接口超时';
+    if (m === 'SCRIPT_ERROR') return '浏览器直连被拦截，建议加后端代理';
+    if (m.indexOf('NOT_FOUND:') === 0) return '未找到地点：' + m.slice(10);
+    return '高德接口返回异常：' + m;
+  }
+
+  // 输入提示：用于出发地/目的地的模糊搜索联想
+  function amapTips(keywords, city) {
+    return amapGet('assistant/inputtips', {
+      keywords: keywords, city: city || '', citylimit: 'false', datatype: 'all'
+    }).then(function (d) {
+      amapOk(d);
+      return (d.tips || []).map(function (t) {
+        var loc = typeof t.location === 'string' ? parseLoc(t.location) : { lng: NaN, lat: NaN };
+        return {
+          name: String(t.name || t.district || ''),
+          district: String(t.district || ''),
+          adcode: String(t.adcode || ''),
+          city: Array.isArray(t.city) ? '' : String(t.city || ''),
+          address: typeof t.address === 'string' ? t.address : '',
+          lng: loc.lng, lat: loc.lat
+        };
+      }).filter(function (t) { return t.name; });
+    });
+  }
+
+  // 驻点漫游下「景区漫游」视图包含的节点：目的地的全部节点（含返程出发点）
+  function citySceneIndices(lastI) {
+    var a = [];
+    for (var i = 1; i <= lastI; i++) a.push(i);
+    return a;
+  }
+
+  /* --- 主入口：真实数据规划 --------------------------------- */
+
+  // 输入联想：把用户选中的候选点直接当解析结果用，省掉一次地理编码
+  var pickedPlace = { origin: null, dest: null };
+
+  function resolvePlace(text, hint) {
+    if (hint && hint.name === text && isFinite(hint.lng) && isFinite(hint.lat)) {
+      return Promise.resolve({
+        name: text, city: hint.city || hint.district || text,
+        adcode: hint.adcode || '', formatted: hint.address || text,
+        lng: hint.lng, lat: hint.lat, picked: true
+      });
+    }
+    return amapGeo(text);
+  }
+
+  // 采集自高德的路径折线可能上千个点，先按距离抽稀，
+  // 否则拖动地图时每帧重建 path 字符串会卡。
+  function simplifyPolyline(pts, minMeters) {
+    if (!pts || pts.length <= 2) return pts || [];
+    var out = [pts[0]], last = pts[0];
+    for (var i = 1; i < pts.length; i++) {
+      if (haversineKm(last, pts[i]) * 1000 >= minMeters) { out.push(pts[i]); last = pts[i]; }
+    }
+    var tail = pts[pts.length - 1];
+    if (out[out.length - 1] !== tail) out.push(tail);
+    return out;
+  }
+
+  /* --- 市内分段：按距离自动挑选交通方式 ---
+     步行 < 1.2km ／ 骑行 1.2~3.5km ／ 公交地铁 3.5~9km ／ 驾车 > 9km
+     每种方式失败会自动降级到下一档，最终退化成直线估算。 */
+  function pickLegMode(km) {
+    if (km < 1.2) return 'walking';
+    if (km < 3.5) return 'bicycling';
+    if (km < 9) return 'transit';
+    return 'driving';
+  }
+
+  function decodeSteps(steps) {
+    var pts = [];
+    (steps || []).forEach(function (st) {
+      String(st.polyline || '').split(';').forEach(function (pair) {
+        var q = pair.split(',');
+        if (q.length === 2 && isFinite(+q[0]) && isFinite(+q[1])) pts.push({ lng: +q[0], lat: +q[1] });
+      });
+    });
+    return pts;
+  }
+
+  function legWalking(from, to) {
+    return amapGet('direction/walking', {
+      origin: from.lng + ',' + from.lat, destination: to.lng + ',' + to.lat
+    }).then(function (d) {
+      amapOk(d);
+      var p = d.route && d.route.paths && d.route.paths[0];
+      if (!p) throw new Error('NO_WALK');
+      var pts = decodeSteps(p.steps);
+      return {
+        mode: 'walking',
+        minutes: Math.max(2, Math.round(+p.duration / 60)),
+        km: +p.distance > 0 ? (+p.distance / 1000) : haversineKm(from, to) * 1.3,
+        polyline: simplifyPolyline(pts.length >= 2 ? pts : [from, to], 70)
+      };
+    });
+  }
+
+  // 骑行走 v4 接口：返回结构是 {errcode, data:{paths:[…]}}
+  function legBicycling(from, to) {
+    var key = amapKey();
+    if (!key) return Promise.reject(new Error('NO_KEY'));
+    var url = 'https://restapi.amap.com/v4/direction/bicycling?' +
+              qs({ key: key, origin: from.lng + ',' + from.lat, destination: to.lng + ',' + to.lat });
+    return amapRaw(url).then(function (d) {
+      if (!d || Number(d.errcode) !== 0) throw new Error('NO_BIKE');
+      var p = d.data && d.data.paths && d.data.paths[0];
+      if (!p) throw new Error('NO_BIKE');
+      var pts = decodeSteps(p.steps);
+      return {
+        mode: 'bicycling',
+        minutes: Math.max(2, Math.round(+p.duration / 60)),
+        km: +p.distance > 0 ? (+p.distance / 1000) : haversineKm(from, to) * 1.3,
+        polyline: simplifyPolyline(pts.length >= 2 ? pts : [from, to], 70)
+      };
+    });
+  }
+
+  // 市内公交/地铁：把各段（步行 + 公交）的折线拼起来
+  function legTransit(from, to, adcode) {
+    if (!adcode) return Promise.reject(new Error('NO_CITY'));
+    return amapGet('direction/transit/integrated', {
+      origin: from.lng + ',' + from.lat,
+      destination: to.lng + ',' + to.lat,
+      city: adcode, cityd: adcode, strategy: 0
+    }).then(function (d) {
+      amapOk(d);
+      var t = d.route && d.route.transits && d.route.transits[0];
+      if (!t) throw new Error('NO_TRANSIT');
+      var pts = [];
+      (t.segments || []).forEach(function (seg) {
+        var w = seg.walking && seg.walking.steps;
+        if (w) pts = pts.concat(decodeSteps(w));
+        var bl = seg.bus && seg.bus.buslines && seg.bus.buslines[0];
+        if (bl) pts = pts.concat(decodeSteps([{ polyline: bl.polyline }]));
+      });
+      return {
+        mode: 'transit',
+        minutes: Math.max(3, Math.round(+t.duration / 60)),
+        km: +t.distance > 0 ? (+t.distance / 1000) : haversineKm(from, to) * 1.3,
+        polyline: simplifyPolyline(pts.length >= 2 ? pts : [from, to], 70),
+        refCost: +t.cost > 0 ? +t.cost : 0
+      };
+    });
+  }
+
+  function legDriving(from, to) {
+    return amapGet('direction/driving', {
+      origin: from.lng + ',' + from.lat,
+      destination: to.lng + ',' + to.lat,
+      extensions: 'base'
+    }).then(function (d) {
+      amapOk(d);
+      var p = d.route && d.route.paths && d.route.paths[0];
+      if (!p) throw new Error('NO_ROUTE');
+      var pts = decodeSteps(p.steps);
+      return {
+        mode: 'driving',
+        minutes: Math.max(3, Math.round(+p.duration / 60)),
+        km: +p.distance > 0 ? (+p.distance / 1000) : haversineKm(from, to) * 1.35,
+        polyline: simplifyPolyline(pts.length >= 2 ? pts : [from, to], 70)
+      };
+    });
+  }
+
+  var LEG_RUNNERS = {
+    walking: legWalking,
+    bicycling: legBicycling,
+    transit: legTransit,
+    driving: legDriving
+  };
+
+  function amapLeg(from, to, adcode) {
+    var straight = haversineKm(from, to);
+    var preferred = pickLegMode(straight);
+    var chain = [preferred];
+    ['walking', 'bicycling', 'transit', 'driving'].forEach(function (m) {
+      if (chain.indexOf(m) < 0) chain.push(m);
+    });
+
+    function attempt(i) {
+      if (i >= chain.length) return Promise.reject(new Error('ALL_FAILED'));
+      var m = chain[i];
+      return LEG_RUNNERS[m](from, to, adcode).then(function (r) {
+        r.preferred = (m === preferred);
+        return r;
+      }).catch(function () { return attempt(i + 1); });
+    }
+
+    return attempt(0).catch(function () {
+      // 单段失败不影响整体，退化成直线并标记为估算
+      return {
+        mode: preferred, approx: true, preferred: true,
+        minutes: cityLegMinutes(from, to), km: straight * 1.35,
+        polyline: [from, to]
+      };
+    });
+  }
+
+  // 到达/离开锚点：火车出行优先挑车站，自驾或长途才考虑机场
+  function pickHub(list, city, preferRail) {
+    var ALL = /火车站|高铁站|东站|南站|西站|北站|机场|客运站|汽车站/;
+    var RAIL = /火车站|高铁站|东站|南站|西站|北站|客运站|汽车站/;
+    var prefer = (list || []).filter(function (p) { return preferRail ? RAIL.test(p.name) : ALL.test(p.name); });
+    if (!prefer.length) prefer = (list || []).filter(function (p) { return ALL.test(p.name); });
+    var pool = prefer.length ? prefer : (list || []);
+    if (!pool.length) return { name: city.city || city.formatted, lng: city.lng, lat: city.lat, isCity: true };
+    var best = pool[0], bd = haversineKm(city, pool[0]);
+    pool.forEach(function (p) {
+      var d = haversineKm(city, p);
+      if (d < bd) { bd = d; best = p; }
+    });
+    return best;
+  }
+
+  // 把候选点按地理位置聚成 k 个片区（k-means，最远点初始化）
+  function kmeansClusters(pois, k, rng) {
+    if (pois.length <= k) return pois.map(function (p) { return [p]; });
+    var centers = [pois[Math.floor(rng() * pois.length)]];
+    while (centers.length < k) {
+      var far = centers[0], farD = -1;
+      pois.forEach(function (p) {
+        var d = Infinity;
+        centers.forEach(function (c) { d = Math.min(d, haversineKm(p, c)); });
+        if (d > farD) { farD = d; far = p; }
+      });
+      centers.push(far);
+    }
+    var groups = [];
+    for (var iter = 0; iter < 12; iter++) {
+      groups = [];
+      for (var i = 0; i < k; i++) groups.push([]);
+      pois.forEach(function (p) {
+        var bi = 0, bd = Infinity;
+        for (var j = 0; j < k; j++) {
+          var d = haversineKm(p, centers[j]);
+          if (d < bd) { bd = d; bi = j; }
+        }
+        groups[bi].push(p);
+      });
+      for (var m = 0; m < k; m++) {
+        if (!groups[m].length) continue;
+        var sl = 0, sa = 0;
+        groups[m].forEach(function (p) { sl += p.lng; sa += p.lat; });
+        centers[m] = { lng: sl / groups[m].length, lat: sa / groups[m].length };
+      }
+    }
+    return groups.filter(function (g) { return g.length; });
+  }
+
+  // 片区内部按最近邻排序；片区之间从锚点出发贪心选最近的下一个片区
+  function orderDays(groups, start) {
+    var remaining = groups.map(function (g) { return nearestNeighborOrder(start, g); });
+    var out = [], cur = start;
+    while (remaining.length) {
+      var bi = 0, bd = Infinity;
+      for (var i = 0; i < remaining.length; i++) {
+        var d = haversineKm(cur, remaining[i][0]);
+        if (d < bd) { bd = d; bi = i; }
+      }
+      var g = remaining.splice(bi, 1)[0];
+      out.push(g);
+      cur = g[g.length - 1];
+    }
+    return out;
+  }
+
+  function fetchPlan(input) {
+    var from = (input.from || '').trim() || '武汉';
+    var to = (input.to || '').trim() || '长沙';
+    var budget = input.budget;
+    var duration = input.duration;
+
+    // 24h = 1 天 1 晚，48h = 2 天 2 晚，72h = 3 天 3 晚
+    var days = duration === 24 ? 1 : duration === 48 ? 2 : 3;
+    var n = duration === 24 ? 7 : duration === 48 ? 10 : 13;
+    var nights = Math.min(days, Math.max(1, Math.round(duration / 24)));
+    var seed = hashStr(['amap4', from, to, budget, duration].join('|'));
+    var rng = mulberry32(seed);
+    var ri = function (a, b) { return a + Math.floor(rng() * (b - a + 1)); };
+
+    var ctx = {};
+
+    return Promise.all([
+      resolvePlace(from, input.fromHint),
+      resolvePlace(to, input.toHint)
+    ]).then(function (geo) {
+      ctx.from = geo[0];
+      ctx.to = geo[1];
+      // 只取这五类：景点 / 餐饮 / 住宿 / 医疗 / 交通设施
+      return Promise.all([
+        amapInterCity(ctx.from, ctx.to).catch(function () { return null; }),
+        amapPoi({ types: '110000' }, ctx.to.adcode, 2),   // 风景名胜
+        amapPoi({ types: '050000' }, ctx.to.adcode, 2),   // 餐饮服务
+        amapPoi({ types: '100000' }, ctx.to.adcode, 1),   // 住宿服务
+        amapPoi({ types: '090000' }, ctx.to.adcode, 1),   // 医疗保健
+        amapPoi({ types: '150000' }, ctx.to.adcode, 1)    // 交通设施（火车站/机场）
+      ]);
+    }).then(function (res) {
+      var inter = res[0], spots = res[1], eats = res[2], hotels = res[3], meds = res[4], traffic = res[5];
+      if (!spots.length && !eats.length) throw new Error('NO_POI');
+
+      // ---- 1. 锚点：目的地的车站/机场 ----
+      // 整条城市路线从这里开始、也在这里结束，因此地图只覆盖目的城市，
+      // 不会被 300 公里外的出发地坐标把视野撑到省级。
+      var hub = pickHub(traffic, ctx.to, !(inter && inter.mode === 'driving'));
+      var center = { lng: hub.lng, lat: hub.lat };
+
+      // ---- 2. 半径收口：剔除郊县景点，避免横跨半个省 ----
+      function within(list, km) {
+        return (list || []).filter(function (p) { return haversineKm(center, p) <= km; });
+      }
+      var spotsF = [], eatsF = [], hotelsF = [], medsF = [], radius = 30;
+      [30, 60, 120, 240, Infinity].some(function (km) {
+        radius = km;
+        spotsF = within(spots, km); eatsF = within(eats, km);
+        hotelsF = within(hotels, km); medsF = within(meds, km);
+        return (spotsF.length + eatsF.length) >= (n - 2) * 2;
+      });
+
+      function byRating(a, b) { return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0); }
+      spotsF.sort(byRating); eatsF.sort(byRating); hotelsF.sort(byRating); medsF.sort(byRating);
+
+      // 高分优先，再在头部样本里按种子洗牌 —— 同样输入必然同样结果
+      function take(pool, k) {
+        if (k <= 0 || !pool.length) return [];
+        var copy = pool.slice(0, Math.max(k * 3, 6));
+        for (var i = copy.length - 1; i > 0; i--) {
+          var j = Math.floor(rng() * (i + 1));
+          var t = copy[i]; copy[i] = copy[j]; copy[j] = t;
+        }
+        return copy.slice(0, k);
+      }
+
+      // ---- 3. 名额分配：交通 2 + 住宿 nights + 其余为停靠点 ----
+      var stopCount = Math.max(2, n - 2 - nights);
+      var medCount = (duration >= 48 && rng() < 0.45) ? 1 : 0;
+      var foodCount = Math.max(1, Math.round((stopCount - medCount) * 0.35));
+      var spotCount = Math.max(1, stopCount - medCount - foodCount);
+
+      var stops = [];
+      take(spotsF, spotCount).forEach(function (p) { stops.push({ kind: 'attraction', poi: p }); });
+      take(eatsF, foodCount).forEach(function (p) { stops.push({ kind: 'food', poi: p }); });
+      take(medsF, medCount).forEach(function (p) { stops.push({ kind: 'medical', poi: p }); });
+      if (stops.length < 2) throw new Error('NO_POI');
+
+      // ---- 4. 按地理位置聚成 days 个片区 → 每天一片 → 片内最近邻 ----
+      var kindOf = {};
+      stops.forEach(function (s) { kindOf[s.poi.name] = s.kind; });
+      var groups = kmeansClusters(stops.map(function (s) { return s.poi; }), days, rng);
+      var dayPlans = orderDays(groups, hub).map(function (g) {
+        return g.map(function (p) { return { kind: kindOf[p.name] || 'attraction', poi: p }; });
+      });
+      while (dayPlans.length < days) dayPlans.push([]);
+
+      // ---- 5. 每晚住在当天最后一站附近 ----
+      var usedHotel = {};
+      function hotelNear(anchor) {
+        var best = null, bd = Infinity;
+        hotelsF.forEach(function (h) {
+          if (usedHotel[h.name]) return;
+          var d = haversineKm(anchor, h);
+          if (d < bd) { bd = d; best = h; }
+        });
+        if (best) usedHotel[best.name] = 1;
+        return best;
+      }
+
+      // ---- 6. 拼出完整的到访序列：车站 → 每天各站 → 每晚住宿 → 车站 ----
+      var seq = [{ role: 'hub', poi: hub }];
+      dayPlans.forEach(function (list, di) {
+        list.forEach(function (s) { seq.push({ role: 'stop', kind: s.kind, poi: s.poi }); });
+        if (di < nights) {
+          var anchor = list.length ? list[list.length - 1].poi : hub;
+          var h = hotelNear(anchor);
+          if (h) seq.push({ role: 'lodging', kind: 'lodging', poi: h });
+        }
+      });
+      seq.push({ role: 'hub', poi: hub });
+
+      // ---- 7. 逐段取真实道路折线（并发 2，避免触发 QPS 限制）----
+      var pairs = [];
+      for (var i = 0; i < seq.length - 1; i++) pairs.push([seq[i].poi, seq[i + 1].poi]);
+
+      return mapLimit(pairs, 2, function (pair) {
+        return amapLeg(pair[0], pair[1], ctx.to.adcode);
+      }).then(function (legs) {
+        var approxLegs = legs.filter(function (l) { return l.approx; }).length;
+
+        // ---- 8. 逐日排程：每天 08:30 开始，21:00 后收尾，夜宿接次晨 ----
+        var nodes = [], legsOut = [];
+        var mkNode = function (kind, kindCode, typeLabel, name, poi, extra) {
+          var meta = TYPE_META[kind];
+          return {
+            index: 0, kind: kind, kindCode: kindCode, typeLabel: typeLabel,
+            name: name, icon: meta.icon, color: meta.color, weight: WEIGHT[kind],
+            real: extra || null, refCost: poi ? (poi.refCost || 0) : 0,
+            lng: poi ? poi.lng : hub.lng, lat: poi ? poi.lat : hub.lat
+          };
+        };
+
+        var cursor = 7 * 60 + 30;
+        var dayNo = 1;
+        var lastIdx;
+
+        // 去程交通（节点落在出发地，返程落在目的地，中间是目的地微循环）
+        var outDur = inter ? Math.max(30, Math.round(inter.minutes / 5) * 5) : ri(120, 180);
+        var outNode = mkNode('transport', 'transport-out', '去程交通',
+          (inter && inter.mode === 'driving' ? '驾车 ' : '公共交通 ') + from + ' → ' + to,
+          { name: from, lng: ctx.from.lng, lat: ctx.from.lat }, inter ? {
+            address: ctx.from.formatted + ' → ' + ctx.to.formatted,
+            note: interNoteText(inter) + ' · 到达 ' + hub.name
+          } : { note: '到达 ' + hub.name });
+        outNode.start = cursor; outNode.duration = outDur; outNode.end = cursor + outDur;
+        outNode.day = 1;
+        outNode.section = 'inter';
+        nodes.push(outNode);
+        cursor = outNode.end;
+
+        for (var s = 1; s < seq.length; s++) {
+          var item = seq[s];
+          var leg = legs[s - 1] || { minutes: 5, polyline: [] };
+          cursor += leg.minutes;
+          legsOut.push(leg.polyline);
+
+          if (item.role === 'lodging') {
+            var nextMorning = dayNo * 1440 + (8 * 60 + 30);
+            var stay = Math.max(360, nextMorning - cursor);
+            var hn = mkNode('lodging', 'lodging', '住宿', item.poi.name, item.poi, poiReal(item.poi));
+            hn.start = cursor; hn.duration = stay; hn.end = cursor + stay; hn.day = dayNo;
+            hn.legFromPrev = leg; hn.section = 'city';
+            nodes.push(hn);
+            cursor += stay;
+            dayNo += 1;
+          } else if (item.role === 'hub') {
+            var back = mkNode('transport', 'transport-back', '返程交通',
+              (inter && inter.mode === 'driving' ? '驾车 ' : '公共交通 ') + to + ' → ' + from,
+              hub, { address: ctx.to.formatted + ' → ' + ctx.from.formatted,
+                     note: '从 ' + hub.name + ' 出发，与去程同程' });
+            back.start = cursor; back.duration = outDur; back.end = cursor + outDur; back.day = dayNo;
+            back.legFromPrev = leg; back.section = 'inter';
+            nodes.push(back);
+            cursor += outDur;
+          } else {
+            var dwell = item.kind === 'food' ? ri(60, 90)
+                      : item.kind === 'medical' ? ri(40, 70) : ri(90, 150);
+            var sn = mkNode(item.kind, item.kind,
+              TYPE_META[item.kind].label, item.poi.name, item.poi, poiReal(item.poi));
+            sn.start = cursor; sn.duration = dwell; sn.end = cursor + dwell; sn.day = dayNo;
+            sn.legFromPrev = leg; sn.section = 'city';
+            nodes.push(sn);
+            cursor += dwell;
+          }
+        }
+
+        lastIdx = nodes.length - 1;
+        nodes.forEach(function (nd, idx) { nd.index = idx; });
+        var totalSpan = nodes[nodes.length - 1].end - (7 * 60 + 30);
+
+        function poiReal(poi) {
+          return {
+            address: poi.address || '', rating: poi.rating || '',
+            tel: poi.tel || '', photo: poi.photo || '',
+            type: poi.type ? poi.type.split(';').slice(-1)[0] : ''
+          };
+        }
+
+        // ---- 9. 文案 ----
+        nodes.forEach(function (nd) {
+          var real = nd.real || {};
+          var dp = DESC_POOL[nd.kind] || DESC_POOL.attraction;
+          var tp = TIP_POOL[nd.kind] || TIP_POOL.attraction;
+          var flavor = dp[ri(0, dp.length - 1)];
+          if (nd.kindCode === 'transport-out' || nd.kindCode === 'transport-back') {
+            nd.descBase = (inter
+              ? (inter.mode === 'driving' ? '驾车' : '公共交通') + '全程约 ' +
+                (inter.distanceKm ? inter.distanceKm + ' 公里，' : '') + fmtDur(nd.duration) + '。'
+              : '') + flavor;
+          } else {
+            var bits = [];
+            if (real.type) bits.push(real.type);
+            if (real.address) bits.push('地址：' + real.address);
+            if (real.rating) bits.push('高德评分 ' + real.rating);
+            if (nd.refCost) bits.push('参考人均 ¥' + nd.refCost);
+            nd.descBase = (bits.length ? bits.join(' · ') + '。' : '') + flavor;
+          }
+          // 段信息单独存放，重排路线后能实时反映最新的交通方式与耗时
+          nd.desc = nd.descBase;
+          nd.tip = tp[ri(0, tp.length - 1)] + (real.tel ? ' 预订电话：' + real.tel : '');
+
+          var cCount = ri(2, 3), usedNames = {};
+          nd.comments = [];
+          for (var c = 0; c < cCount; c++) {
+            var cname = COMMENT_NAMES[ri(0, COMMENT_NAMES.length - 1)];
+            var guard = 0;
+            while (usedNames[cname] && guard++ < 20) cname = COMMENT_NAMES[ri(0, COMMENT_NAMES.length - 1)];
+            usedNames[cname] = 1;
+            nd.comments.push({
+              name: cname, rating: ri(4, 5),
+              text: COMMENT_TEXTS[ri(0, COMMENT_TEXTS.length - 1)],
+              date: '2024-' + pad2(ri(1, 12)) + '-' + pad2(ri(1, 28))
+            });
+          }
+        });
+
+        // ---- 10. 费用分配 ----
+        var ratio = 0.88 + (rng() - 0.5) * 0.16;
+        ratio = Math.max(0.78, Math.min(0.97, ratio));
+        var allocated = Math.round(budget * ratio);
+        var interTotal = 0;
+
+        if (inter && inter.refCost > 0) {
+          // 驻点漫游：先从预算里扣掉往返城际交通，余额再分给市内住宿/餐饮/景点
+          interTotal = Math.min(inter.refCost * 2, Math.round(allocated * 0.7));
+          nodes[0].cost = Math.round(interTotal / 2);
+          nodes[lastIdx].cost = interTotal - nodes[0].cost;
+          var cityNodes = nodes.slice(1, lastIdx);
+          var cw = cityNodes.reduce(function (sum, x) { return sum + x.weight; }, 0) || 1;
+          var cityPool = Math.max(0, allocated - interTotal);
+          var cacc = 0;
+          cityNodes.forEach(function (nd, i) {
+            if (i === cityNodes.length - 1) nd.cost = Math.max(0, cityPool - cacc);
+            else { nd.cost = Math.round(cityPool * nd.weight / cw); cacc += nd.cost; }
+          });
+          var cc = cityNodes.reduce(function (sum, x) { return sum + x.cost; }, 0);
+          if (cc !== cityPool && cityNodes.length) {
+            cityNodes[cityNodes.length - 1].cost += (cityPool - cc);
+          }
+        } else {
+          var wSum = nodes.reduce(function (sum, x) { return sum + x.weight; }, 0);
+          var acc = 0;
+          nodes.forEach(function (nd, idx) {
+            if (idx === nodes.length - 1) nd.cost = Math.max(0, allocated - acc);
+            else { nd.cost = Math.round(allocated * nd.weight / wSum); acc += nd.cost; }
+          });
+          var totalCost = nodes.reduce(function (sum, x) { return sum + x.cost; }, 0);
+          if (totalCost !== allocated) nodes[nodes.length - 1].cost += (allocated - totalCost);
+        }
+
+        return {
+          from: from, to: to, budget: budget, duration: duration,
+          seed: seed, nodes: nodes, legs: legsOut,
+          allocated: allocated, ratio: ratio, totalSpan: totalSpan,
+          source: 'amap',
+          mode: 'hub',
+          scenes: [
+            { id: 'inter', label: '路线导航', indices: [0, lastIdx] },
+            { id: 'city',  label: '景区漫游', indices: citySceneIndices(lastIdx) }
+          ],
+          meta: {
+            cities: ctx.from.city + ' → ' + ctx.to.city,
+            hub: hub.name,
+            mode: 'hub',
+            cityAdcode: ctx.to.adcode,
+            interTotal: interTotal,
+            interLeg: {
+              mode: inter ? inter.mode : 'transit',
+              minutes: outDur,
+              km: inter ? inter.distanceKm : 0
+            },
+            days: days,                 // 聚成的片区数＝实际游览天数
+            calDays: Math.floor(nodes[nodes.length - 1].end / 1440) + 1,
+            nights: nights,
+            radiusKm: radius === Infinity ? 0 : radius,
+            approxLegs: approxLegs,
+            modes: inter ? inter.mode : ''
+          }
+        };
+
+        function citySceneIndices(lastI) {
+          var a = [];
+          for (var i = 1; i <= lastI; i++) a.push(i);
+          return a;
+        }
+      });
+    });
+  }
+
+  /* =========================================================
+   * 4. 地图绘制
+   * =======================================================*/
+  var svg = document.getElementById('map');
+  var routePath = null;
+  var routeLen = 0;
+  var mover = null;
+  var moverT = 0;
+
+  function drawDecor() {
+    var rng = mulberry32(20240815);
+    var ri = function (a, b) { return a + Math.floor(rng() * (b - a + 1)); };
+    var frag = document.createDocumentFragment();
+
+    // 底色
+    frag.appendChild(el('rect', { x: 0, y: 0, width: 900, height: 620, fill: '#f8f9fa' }));
+
+    // 绿地
+    var gGreen = el('g', { opacity: .95 });
+    var greenSpots = [
+      [70, 60, 210, 130], [600, 70, 220, 120], [90, 420, 180, 140],
+      [520, 430, 240, 150], [330, 250, 150, 105]
+    ];
+    greenSpots.forEach(function (r) {
+      gGreen.appendChild(el('rect', {
+        x: r[0] + ri(-8, 8), y: r[1] + ri(-8, 8),
+        width: r[2], height: r[3], rx: 30, fill: '#e6f5ea'
+      }));
+    });
+    frag.appendChild(gGreen);
+
+    // 水域：河流 + 湖面
+    var gWater = el('g', {});
+    gWater.appendChild(el('path', {
+      d: 'M -30 ' + ri(150, 200) + ' C 200 ' + ri(70, 130) + ', 430 ' + ri(330, 400) + ', 930 ' + ri(190, 280),
+      fill: 'none', stroke: '#dbeafe', 'stroke-width': 46, 'stroke-linecap': 'round', opacity: .95
+    }));
+    gWater.appendChild(el('ellipse', {
+      cx: ri(690, 760), cy: ri(400, 470), rx: 118, ry: 66, fill: '#dbeafe', opacity: .95
+    }));
+    frag.appendChild(gWater);
+
+    // 道路：先画描边再画白色路面
+    var hRoads = [ri(80, 110), ri(240, 270), ri(400, 430), ri(520, 555)];
+    var vRoads = [ri(120, 145), ri(320, 350), ri(555, 585), ri(760, 790)];
+    var casing = el('g', { stroke: '#e4e8ee', fill: 'none', 'stroke-linecap': 'round' });
+    var surface = el('g', { stroke: '#ffffff', fill: 'none', 'stroke-linecap': 'round' });
+
+    hRoads.forEach(function (y) {
+      casing.appendChild(el('line', { x1: -20, y1: y, x2: 920, y2: y + ri(-14, 14), 'stroke-width': 11 }));
+      surface.appendChild(el('line', { x1: -20, y1: y, x2: 920, y2: y + ri(-14, 14), 'stroke-width': 8 }));
+    });
+    vRoads.forEach(function (x) {
+      casing.appendChild(el('line', { x1: x, y1: -20, x2: x + ri(-14, 14), y2: 640, 'stroke-width': 11 }));
+      surface.appendChild(el('line', { x1: x, y1: -20, x2: x + ri(-14, 14), y2: 640, 'stroke-width': 8 }));
+    });
+    // 斜向主干道
+    casing.appendChild(el('line', { x1: -20, y1: 560, x2: 700, y2: -20, 'stroke-width': 10 }));
+    surface.appendChild(el('line', { x1: -20, y1: 560, x2: 700, y2: -20, 'stroke-width': 7 }));
+
+    // 次级支路
+    var minor = el('g', { stroke: '#eef1f5', 'stroke-width': 3.5, fill: 'none' });
+    for (var i = 0; i < 9; i++) {
+      if (i % 2 === 0) minor.appendChild(el('line', { x1: -20, y1: ri(20, 600), x2: 920, y2: ri(20, 600) }));
+      else minor.appendChild(el('line', { x1: ri(20, 880), y1: -20, x2: ri(20, 880), y2: 640 }));
+    }
+    frag.appendChild(minor);
+    frag.appendChild(casing);
+    frag.appendChild(surface);
+
+    return frag;
+  }
+
+  // Catmull-Rom → 三次贝塞尔，得到平滑曲线
+  function smoothPath(pts) {
+    if (!pts.length) return '';
+    if (pts.length === 1) return 'M ' + pts[0].x + ' ' + pts[0].y;
+    var d = 'M ' + pts[0].x.toFixed(1) + ' ' + pts[0].y.toFixed(1);
+    for (var i = 0; i < pts.length - 1; i++) {
+      var p0 = pts[i - 1] || pts[i];
+      var p1 = pts[i];
+      var p2 = pts[i + 1];
+      var p3 = pts[i + 2] || p2;
+      var c1x = p1.x + (p2.x - p0.x) / 6;
+      var c1y = p1.y + (p2.y - p0.y) / 6;
+      var c2x = p2.x - (p3.x - p1.x) / 6;
+      var c2y = p2.y - (p3.y - p1.y) / 6;
+      d += ' C ' + c1x.toFixed(1) + ' ' + c1y.toFixed(1) + ', ' +
+                   c2x.toFixed(1) + ' ' + c2y.toFixed(1) + ', ' +
+                   p2.x.toFixed(1) + ' ' + p2.y.toFixed(1);
+    }
+    return d;
+  }
+
+  var nodeEls = [];
+
+  /* --- 单个地点标记（手绘地图与真实地图共用同一套外观） --- */
+  var suppressClick = false;
+
+  // 标签底色分级：景点/餐饮/住宿 → 黄底；交通 → 蓝底；医疗 → 红底
+  function badgeClass(kind) {
+    if (kind === 'transport') return 'lb-transport';
+    if (kind === 'medical') return 'lb-medical';
+    return 'lb-hot';
+  }
+  function badgeWidth(text) {
+    var w = 0;
+    for (var i = 0; i < text.length; i++) w += text.charCodeAt(i) > 255 ? 11.4 : 6.2;
+    return Math.max(30, w + 12);
+  }
+
+  function makeNodeGroup(nd) {
+    var g = el('g', {
+      class: 'node', tabindex: '0', role: 'button',
+      'aria-label': nd.typeLabel + '：' + nd.name
+    });
+    g.dataset.index = String(nd.index);
+
+    g.appendChild(el('circle', { r: 20, fill: 'none', 'pointer-events': 'all' }));
+    g.appendChild(el('circle', { class: 'ring', r: 19, fill: 'none', stroke: nd.color,
+                                 'stroke-width': 1.6, 'stroke-dasharray': '3 4' }));
+    g.appendChild(el('circle', { class: 'halo', r: 15, fill: nd.color, opacity: .16 }));
+    g.appendChild(el('circle', { class: 'dot', r: 13, fill: nd.color, stroke: '#ffffff', 'stroke-width': 2 }));
+
+    var t = el('text', {
+      x: 0, y: 1, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+      'font-size': 13, 'pointer-events': 'none'
+    });
+    t.textContent = nd.icon;
+    g.appendChild(t);
+
+    // 标签做成带底色的徽章，字号统一大于底图注记
+    var label = shortName(nd.name, 10);
+    var bw = badgeWidth(label);
+    var cls = badgeClass(nd.kind);
+    g.appendChild(el('rect', {
+      class: 'node-badge ' + cls, x: (-bw / 2).toFixed(1), y: 17,
+      width: bw.toFixed(1), height: 17, rx: 3.5
+    }));
+    var lb = el('text', { class: 'node-label', x: 0, y: 26, 'text-anchor': 'middle' });
+    lb.textContent = label;
+    g.appendChild(lb);
+
+    g.addEventListener('click', function () { if (!suppressClick) select(nd.index); });
+    g.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(nd.index); }
+    });
+    return g;
+  }
+
+  function makeMoverDot() {
+    var g = el('g', {});
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 11, fill: '#3b82f6', opacity: .17 }));
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 5.5, fill: '#3b82f6', stroke: '#ffffff', 'stroke-width': 2 }));
+    return g;
+  }
+
+  // 路线分四层画：外发光 → 柔光带 → 实线 → 循环流动的高光虚线
+  function makeRouteLayers(d) {
+    var mk = function (cls, attrs) {
+      var a = { class: cls, d: d, fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+      for (var k in attrs) a[k] = attrs[k];
+      return el('path', a);
+    };
+    var glow = mk('route-glow', { stroke: '#3b82f6', 'stroke-width': 13, opacity: .16 });
+    var soft = mk('route-soft', { stroke: '#60a5fa', 'stroke-width': 6, opacity: .32 });
+    var line = mk('route-line', { stroke: '#2563eb', 'stroke-width': 2.6 });
+    var flow = mk('route-flow', { stroke: '#dbeafe', 'stroke-width': 2.6, 'stroke-dasharray': '16 96' });
+    var g = el('g', {});
+    g.appendChild(glow);
+    g.appendChild(soft);
+    g.appendChild(line);
+    g.appendChild(flow);
+    return { group: g, glow: glow, soft: soft, line: line, flow: flow };
+  }
+
+  // 折线上按比例取点，同时给出该处的前进方向角（用于方向箭头）
+  function polyPointAt(pts, f) {
+    if (!pts || pts.length < 2) return null;
+    var segs = [], total = 0, i;
+    for (i = 0; i < pts.length - 1; i++) {
+      var dx = pts[i + 1].x - pts[i].x, dy = pts[i + 1].y - pts[i].y;
+      var len = Math.sqrt(dx * dx + dy * dy);
+      segs.push(len); total += len;
+    }
+    if (!(total > 0)) return null;
+    var target = total * f, acc = 0;
+    for (i = 0; i < segs.length; i++) {
+      if (acc + segs[i] >= target || i === segs.length - 1) {
+        var t = segs[i] > 0 ? Math.max(0, Math.min(1, (target - acc) / segs[i])) : 0;
+        var a = pts[i], b = pts[i + 1];
+        return {
+          x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t,
+          angle: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI,
+          total: total
+        };
+      }
+      acc += segs[i];
+    }
+    return null;
+  }
+
+  function modeLabel(mode) {
+    return mode === 'walking' ? '步行'
+         : mode === 'bicycling' ? '骑行'
+         : mode === 'driving' ? '驾车'
+         : mode === 'subway' ? '地铁'
+         : mode === 'bus' ? '公交'
+         : mode === 'ferry' ? '轮渡'
+         : mode === 'transit' ? '公交地铁'
+         : '移动';
+  }
+
+  // 城际交通用弧线表示（两点间没有市内路网，画直线太干）
+  function arcPolyline(a, b, bulge) {
+    var pts = [];
+    var mx = (a.lng + b.lng) / 2, my = (a.lat + b.lat) / 2;
+    var cx = mx - (b.lat - a.lat) * bulge, cy = my + (b.lng - a.lng) * bulge;
+    for (var i = 0; i <= 40; i++) {
+      var t = i / 40;
+      pts.push({
+        lng: (1 - t) * (1 - t) * a.lng + 2 * (1 - t) * t * cx + t * t * b.lng,
+        lat: (1 - t) * (1 - t) * a.lat + 2 * (1 - t) * t * cy + t * t * b.lat
+      });
+    }
+    return pts;
+  }
+  function polyToPath(scr) {
+    var d = '';
+    for (var i = 0; i < scr.length; i++) {
+      d += (d ? ' L ' : 'M ') + scr[i].x.toFixed(1) + ' ' + scr[i].y.toFixed(1);
+    }
+    return d;
+  }
+  function legText(leg) {
+    if (!leg) return '';
+    return modeLabel(leg.mode) + ' ' + fmtDur(leg.minutes) + (leg.approx ? '(估)' : '');
+  }
+
+  // 路段标注：箭头 + 交通方式/耗时
+  function makeLegMarker(leg) {
+    var g = el('g', { class: 'leg-mark' });
+    var rot = el('g', { class: 'leg-rot' });
+    rot.appendChild(el('path', { class: 'leg-arrow', d: 'M -5.5 -4.5 L 7 0 L -5.5 4.5 z' }));
+    g.appendChild(rot);
+    var txt = el('text', { class: 'leg-label', x: 0, y: -9 });
+    txt.textContent = legText(leg);
+    g.appendChild(txt);
+    return { g: g, rot: rot, text: txt };
+  }
+
+  /* --- 手绘地图的缩放 / 平移（在 viewBox 坐标里做仿射变换） --- */
+  var svgRoot = null;
+  var svgView = { k: 1, x: 0, y: 0 };
+
+  function applySvgView() {
+    if (!svgRoot) return;
+    svgRoot.setAttribute('transform',
+      'translate(' + svgView.x.toFixed(2) + ',' + svgView.y.toFixed(2) + ') scale(' + svgView.k.toFixed(4) + ')');
+  }
+  function resetSvgView() { svgView = { k: 1, x: 0, y: 0 }; applySvgView(); }
+  function svgEventPoint(ev) {
+    var r = svg.getBoundingClientRect();
+    var s = (r.width / 900) || 1;
+    return { x: (ev.clientX - r.left) / s, y: (ev.clientY - r.top) / s };
+  }
+  // 以 (px,py) 为锚点缩放，保证该点在屏幕上不动
+  function svgZoomAt(nk, px, py) {
+    nk = Math.max(0.5, Math.min(8, nk));
+    var k = svgView.k;
+    if (Math.abs(nk - k) < 1e-6) return;
+    svgView.x = px - (px - svgView.x) * (nk / k);
+    svgView.y = py - (py - svgView.y) * (nk / k);
+    svgView.k = nk;
+    applySvgView();
+  }
+
+  function drawMap(plan) {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    nodeEls = [];
+    routePath = null;
+    routeLen = 0;
+    svgView = { k: 1, x: 0, y: 0 };
+
+    svgRoot = el('g', { id: 'svgRoot' });
+    svgRoot.appendChild(drawDecor());
+
+    // 路线
+    var pts = plan.nodes.map(function (n) {
+      return {
+        x: (typeof n.x === 'number' && isFinite(n.x)) ? n.x : 450,
+        y: (typeof n.y === 'number' && isFinite(n.y)) ? n.y : 310
+      };
+    });
+    var d = smoothPath(pts);
+
+    // 路线：发光实线 + 流光
+    var route = makeRouteLayers(d);
+    routePath = route.line;
+    svgRoot.appendChild(route.group);
+
+    // 路段中点：方向箭头 + 交通方式/耗时
+    var legLayer = el('g', {});
+    for (var li = 1; li < plan.nodes.length; li++) {
+      var pa = plan.nodes[li - 1], pb = plan.nodes[li];
+      var ax = (typeof pa.x === 'number' && isFinite(pa.x)) ? pa.x : 450;
+      var ay = (typeof pa.y === 'number' && isFinite(pa.y)) ? pa.y : 310;
+      var bx = (typeof pb.x === 'number' && isFinite(pb.x)) ? pb.x : 450;
+      var by = (typeof pb.y === 'number' && isFinite(pb.y)) ? pb.y : 310;
+      var mid = polyPointAt([{ x: ax, y: ay }, { x: bx, y: by }], .5);
+      if (!mid) continue;
+      var mk = makeLegMarker(pb.legFromPrev);
+      if (!pb.legFromPrev) mk.text.textContent = '';
+      mk.g.setAttribute('transform', 'translate(' + mid.x.toFixed(1) + ',' + mid.y.toFixed(1) + ')');
+      mk.rot.setAttribute('transform', 'rotate(' + mid.angle.toFixed(1) + ')');
+      legLayer.appendChild(mk.g);
+    }
+    svgRoot.appendChild(legLayer);
+
+    // 移动光点
+    mover = makeMoverDot();
+    svgRoot.appendChild(mover);
+
+    // 节点
+    var nodeLayer = el('g', {});
+    plan.nodes.forEach(function (nd) {
+      var g = makeNodeGroup(nd);
+      var px = (typeof nd.x === 'number' && isFinite(nd.x)) ? nd.x : 450;
+      var py = (typeof nd.y === 'number' && isFinite(nd.y)) ? nd.y : 310;
+      g.setAttribute('transform', 'translate(' + px.toFixed(1) + ',' + py.toFixed(1) + ')');
+      nodeLayer.appendChild(g);
+      nodeEls.push(g);
+    });
+    svgRoot.appendChild(nodeLayer);
+
+    svg.appendChild(svgRoot);
+    applySvgView();
+
+    // 重新计算路径长度
+    try { routeLen = routePath.getTotalLength(); } catch (e) { routeLen = 0; }
+    moverT = 0;
+  }
+
+  /* =========================================================
+   * 5. 动画：沿路径移动的小圆点
+   * =======================================================*/
+  var lastTs = 0;
+  function tick(ts) {
+    if (!lastTs) lastTs = ts;
+    var dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    if (routePath && routeLen > 0 && mover) {
+      moverT += (58 / routeLen) * dt;   // 约 58 px / 秒
+      if (moverT > 1) moverT -= 1;
+      try {
+        var p = routePath.getPointAtLength(moverT * routeLen);
+        mover.setAttribute('transform', 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')');
+      } catch (e) { /* 路径尚未就绪，跳过该帧 */ }
+    }
+    window.requestAnimationFrame(tick);
+  }
+  window.requestAnimationFrame(tick);
+
+  /* =========================================================
+   * 5.5 真实瓦片地图：自研 Web Mercator 瓦片引擎
+   *     —— 无任何地图库依赖，缩放手势完全自实现
+   * =======================================================*/
+  var tileMapEl = document.getElementById('tileMap');
+  var tileLayerEl = document.getElementById('tileLayer');
+  var tileOverlayEl = document.getElementById('tileOverlay');
+  var scaleBarEl = document.getElementById('scaleBar');
+
+  var tileView = { zoom: 10, nx: 0.5, ny: 0.5 };
+  var tilePlan = null;
+  var tileEls = [];
+  var tileRouteHalo = null;
+  var tileRoutePath = null;
+  var tileRouteSoft = null;
+  var tileRouteFlow = null;
+  var tileMover = null;
+  var legMarks = [];
+  var tileIdx = [];
+  var mapScene = 'city';
+  var tileCache = {};
+  var tileActive = false;
+  // 底图图层：ltype=1 只保留地块（去掉铁路/高速/POI 注记），3=地块+路网，8=纯色，0=标准
+  var LS_LTYPE = 'jp.tileLtype.v1';
+  var tileLtype = 1;
+
+  // WGS-84 与 GCJ-02 在一张瓦片图上的投影公式相同，
+  // 高德瓦片本身就是 GCJ-02 基准，所以高德 POI 坐标可以直接套用，无需纠偏。
+  function lngToNormX(lng) { return (lng + 180) / 360; }
+  function latToNormY(lat) {
+    var s = Math.sin(lat * Math.PI / 180);
+    return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
+  }
+  function normYToLat(ny) {
+    var n = Math.PI - 2 * Math.PI * ny;
+    return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+  }
+  function tileUrl(x, y, z) {
+    var sub = ((x + y) % 4) + 1;
+    return 'https://wprd0' + sub + '.is.autonavi.com/appmaptile' +
+           '?lang=zh_cn&size=1&style=7&x=' + x + '&y=' + y + '&z=' + z +
+           (tileLtype ? '&ltype=' + tileLtype : '');
+  }
+  function clearTiles() {
+    for (var k in tileCache) {
+      if (tileCache[k].parentNode) tileCache[k].parentNode.removeChild(tileCache[k]);
+    }
+    tileCache = {};
+  }
+  function tileDims() {
+    return { w: tileMapEl.clientWidth || 900, h: tileMapEl.clientHeight || 620 };
+  }
+  function worldSize(z) { return 256 * Math.pow(2, z); }
+
+  function lngLatToScreen(lng, lat, w, h) {
+    var S = worldSize(tileView.zoom);
+    return {
+      x: (lngToNormX(lng) - tileView.nx) * S + w / 2,
+      y: (latToNormY(lat) - tileView.ny) * S + h / 2
+    };
+  }
+
+  // 限制视野不越出世界范围，避免拖出大片空白
+  function clampTileView() {
+    var d = tileDims();
+    var S = worldSize(tileView.zoom);
+    var halfW = (d.w / 2) / S, halfH = (d.h / 2) / S;
+    if (halfW >= 0.5) tileView.nx = 0.5;
+    else tileView.nx = Math.max(halfW, Math.min(1 - halfW, tileView.nx));
+    if (halfH >= 0.5) tileView.ny = 0.5;
+    else tileView.ny = Math.max(halfH, Math.min(1 - halfH, tileView.ny));
+  }
+
+  function renderTiles() {
+    if (!tileActive) return;
+    var d = tileDims(), w = d.w, h = d.h;
+    var tz = Math.max(3, Math.min(18, Math.round(tileView.zoom)));
+    var s = Math.pow(2, tileView.zoom - tz);        // 亚级缩放，保证连续
+    var S = worldSize(tz);
+    var vx = tileView.nx * S, vy = tileView.ny * S;
+
+    tileLayerEl.style.transform =
+      'translate(' + (-vx * s + w / 2).toFixed(2) + 'px,' + (-vy * s + h / 2).toFixed(2) + 'px) scale(' + s.toFixed(4) + ')';
+
+    var PAD = 256;                                   // 四周多载一圈，拖动时不闪白
+    var minX = vx - (w / 2 + PAD) / s, maxX = vx + (w / 2 + PAD) / s;
+    var minY = vy - (h / 2 + PAD) / s, maxY = vy + (h / 2 + PAD) / s;
+    var n = Math.pow(2, tz);
+    var x0 = Math.floor(minX / 256), x1 = Math.floor(maxX / 256);
+    var y0 = Math.max(0, Math.floor(minY / 256)), y1 = Math.min(n - 1, Math.floor(maxY / 256));
+    if (x1 - x0 > 40) x1 = x0 + 40;
+
+    var need = {};
+    for (var xi = x0; xi <= x1; xi++) {
+      var wx = ((xi % n) + n) % n;
+      for (var yi = y0; yi <= y1; yi++) {
+        var key = tz + '/' + xi + '/' + yi;
+        need[key] = 1;
+        if (!tileCache[key]) {
+          var img = document.createElement('img');
+          img.alt = '';
+          img.decoding = 'async';
+          img.style.left = (xi * 256) + 'px';
+          img.style.top = (yi * 256) + 'px';
+          img.src = tileUrl(wx, yi, tz);
+          tileCache[key] = img;
+          tileLayerEl.appendChild(img);
+        }
+      }
+    }
+    for (var k in tileCache) {
+      if (!need[k]) {
+        if (tileCache[k].parentNode) tileCache[k].parentNode.removeChild(tileCache[k]);
+        delete tileCache[k];
+      }
+    }
+  }
+
+  function renderTileOverlay() {
+    if (!tileActive || !tilePlan) return;
+    var d = tileDims(), w = d.w, h = d.h;
+    tileOverlayEl.setAttribute('width', w);
+    tileOverlayEl.setAttribute('height', h);
+    tileOverlayEl.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+
+    var pts = [];
+    tileIdx.forEach(function (ni, k) {
+      var nd = tilePlan.nodes[ni];
+      if (!nd) { pts.push({ x: 0, y: 0 }); return; }
+      var p = lngLatToScreen(nd.lng, nd.lat, w, h);
+      pts.push(p);
+      if (tileEls[k]) {
+        tileEls[k].setAttribute('transform', 'translate(' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ')');
+      }
+    });
+
+    // 路线永远与「当前视图里能看到的段」一致
+    var path = '';
+    legMarks.forEach(function (m) {
+      var scr = (m.poly || []).map(function (p) { return lngLatToScreen(p.lng, p.lat, w, h); });
+      if (scr.length >= 2) path += polyToPath(scr);
+    });
+    if (!path) path = smoothPath(pts);
+
+    if (tileRouteHalo) tileRouteHalo.setAttribute('d', path);
+    if (tileRouteSoft) tileRouteSoft.setAttribute('d', path);
+    if (tileRouteFlow) tileRouteFlow.setAttribute('d', path);
+    if (tileRoutePath) {
+      tileRoutePath.setAttribute('d', path);
+      try { routeLen = tileRoutePath.getTotalLength(); } catch (e) { routeLen = 0; }
+    }
+
+    // 路段中点：方向箭头 + 交通方式/耗时（过短的段不标注，避免堆叠）
+    legMarks.forEach(function (m) {
+      var scr = (m.poly || []).map(function (p) { return lngLatToScreen(p.lng, p.lat, w, h); });
+      var pt = polyPointAt(scr, 0.52);
+      if (!pt || pt.total < 52) {
+        m.g.setAttribute('transform', 'translate(-9999,-9999)');
+        return;
+      }
+      m.g.setAttribute('transform', 'translate(' + pt.x.toFixed(1) + ',' + pt.y.toFixed(1) + ')');
+      m.rot.setAttribute('transform', 'rotate(' + pt.angle.toFixed(1) + ')');
+    });
+
+    applyDeclutter(pts);
+
+    updateScaleBar();
+  }
+
+  // 节点抽稀：屏幕距离过近时，保留优先级高的，其余降级（缩小 + 隐藏标签）
+  function nodePriority(nd) {
+    if (!nd) return 0;
+    if (nd.kind === 'transport') return 5;
+    if (nd.kind === 'lodging') return 4;
+    if (nd.kind === 'attraction') return 3;
+    if (nd.kind === 'food') return 2;
+    return 1;
+  }
+  function applyDeclutter(pts) {
+    var order = pts.map(function (p, i) { return i; });
+    order.sort(function (a, b) {
+      var d = nodePriority(tilePlan.nodes[tileIdx[b]]) - nodePriority(tilePlan.nodes[tileIdx[a]]);
+      return d !== 0 ? d : a - b;
+    });
+    var kept = [], minor = {};
+    order.forEach(function (i) {
+      var p = pts[i], clash = false;
+      for (var k = 0; k < kept.length; k++) {
+        var q = pts[kept[k]];
+        if (Math.abs(p.x - q.x) < 32 && Math.abs(p.y - q.y) < 24) { clash = true; break; }
+      }
+      if (clash) minor[i] = 1; else kept.push(i);
+    });
+    tileEls.forEach(function (g, i) { g.classList.toggle('minor', !!minor[i]); });
+  }
+
+  function updateScaleBar() {
+    if (!scaleBarEl) return;
+    var mpp = 156543.03392 * Math.cos(normYToLat(tileView.ny) * Math.PI / 180) / Math.pow(2, tileView.zoom);
+    var steps = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000];
+    var target = mpp * 96, pick = steps[0];
+    for (var i = 0; i < steps.length; i++) if (steps[i] <= target) pick = steps[i];
+    var px = Math.max(28, Math.min(190, pick / mpp));
+    var bar = scaleBarEl.querySelector ? scaleBarEl.querySelector('i') : null;
+    var txt = scaleBarEl.querySelector ? scaleBarEl.querySelector('span') : null;
+    if (bar) bar.style.width = px.toFixed(0) + 'px';
+    if (txt) txt.textContent = pick >= 1000 ? (pick / 1000) + ' 公里' : pick + ' 米';
+  }
+
+  // 视图分场景：驻点漫游下分「城际交通」与「市内游览」两段
+  function sceneIndices(plan, sceneId) {
+    if (plan && plan.scenes && sceneId) {
+      for (var i = 0; i < plan.scenes.length; i++) {
+        if (plan.scenes[i].id === sceneId) return plan.scenes[i].indices;
+      }
+    }
+    return null;
+  }
+
+  function buildTileOverlay(plan, sceneId) {
+    while (tileOverlayEl.firstChild) tileOverlayEl.removeChild(tileOverlayEl.firstChild);
+    tileEls = [];
+    legMarks = [];
+    tilePlan = plan;
+
+    var idxs = sceneIndices(plan, sceneId);
+    if (!idxs) idxs = plan.nodes.map(function (_, i) { return i; });
+    tileIdx = idxs;
+
+    var route = makeRouteLayers('');
+    tileRouteHalo = route.glow;
+    tileRouteSoft = route.soft;
+    tileRoutePath = route.line;
+    tileRouteFlow = route.flow;
+    tileOverlayEl.appendChild(route.group);
+
+    // 路段标注层（在路线之上、节点之下）
+    var legLayer = el('g', {});
+    var interInfo = (plan.meta && plan.meta.interLeg) || { mode: 'transit', minutes: 0, km: 0 };
+    for (var k = 0; k + 1 < idxs.length; k++) {
+      var fromI = idxs[k], toI = idxs[k + 1];
+      var a = plan.nodes[fromI], b = plan.nodes[toI];
+      if (!a || !b) continue;
+      var poly, leg;
+      if (sceneId === 'inter') {
+        // 城际段没有市内路网，用弧线表示
+        poly = arcPolyline(a, b, 0.16);
+        leg = { mode: interInfo.mode, minutes: interInfo.minutes, km: interInfo.km, approx: true };
+      } else {
+        poly = (plan.legs || [])[fromI];
+        leg = b.legFromPrev;
+      }
+      if (!poly || poly.length < 2) continue;
+      var m = makeLegMarker(leg || { mode: '', minutes: 0 });
+      m.poly = poly;
+      legLayer.appendChild(m.g);
+      legMarks.push(m);
+    }
+    tileOverlayEl.appendChild(legLayer);
+
+    tileMover = makeMoverDot();
+    tileOverlayEl.appendChild(tileMover);
+
+    var nodeLayer = el('g', {});
+    idxs.forEach(function (ni) {
+      var g = makeNodeGroup(plan.nodes[ni]);
+      nodeLayer.appendChild(g);
+      tileEls.push(g);
+    });
+    tileOverlayEl.appendChild(nodeLayer);
+
+    // 把动画循环的驱动对象切到真实地图上
+    routePath = tileRoutePath;
+    mover = tileMover;
+    routeLen = 0;
+    moverT = 0;
+  }
+
+  // 自动取景：让当前视图的节点刚好铺满可视区
+  function fitTileView(plan, idxs) {
+    var d = tileDims(), w = d.w, h = d.h;
+    var list = idxs ? idxs.map(function (i) { return plan.nodes[i]; }) : plan.nodes;
+    var xs = [], ys = [];
+    list.forEach(function (nd) {
+      if (nd && typeof nd.lng === 'number' && typeof nd.lat === 'number' &&
+          isFinite(nd.lng) && isFinite(nd.lat)) {
+        xs.push(lngToNormX(nd.lng));
+        ys.push(latToNormY(nd.lat));
+      }
+    });
+    if (!xs.length) return;
+    var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
+    var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+    var availW = Math.max(80, w - 210);      // 给标签和工具条留位置
+    var availH = Math.max(80, h - 180);
+    var spanX = maxX - minX, spanY = maxY - minY;
+    tileView.nx = (minX + maxX) / 2;
+    tileView.ny = (minY + maxY) / 2;
+
+    // 所有点几乎重合时不要一路放大到 17 级，否则整张图只剩一个点
+    if (spanX < 1e-6 && spanY < 1e-6) {
+      tileView.zoom = 14;
+      clampTileView();
+      return;
+    }
+    var zx = Math.log(availW / (256 * Math.max(spanX, 1e-7))) / Math.LN2;
+    var zy = Math.log(availH / (256 * Math.max(spanY, 1e-7))) / Math.LN2;
+    tileView.zoom = Math.max(3, Math.min(16, Math.min(zx, zy)));
+    clampTileView();
+  }
+
+  // 两种地图的显隐：用 data-mode 属性 + hidden 属性双保险。
+  // 不能只写 node.hidden —— <svg> 上没有这个 IDL 属性，赋了也不会生效。
+  var mapWrapEl = document.querySelector('.map-wrap');
+  var mapMode = 'svg';
+
+  function setHidden(node, on) {
+    if (!node) return;
+    if (on) node.setAttribute('hidden', '');
+    else node.removeAttribute('hidden');
+  }
+  function setMapMode(mode) {
+    mapMode = mode;
+    if (mapWrapEl) mapWrapEl.setAttribute('data-mode', mode);
+  }
+
+  function showTileMap(plan, sceneId) {
+    tileActive = true;
+    setMapMode('tile');
+    setHidden(tileMapEl, false);
+    setHidden(svg, true);
+    setHidden(scaleBarEl, false);
+    setHidden(document.getElementById('tileSeg'), false);
+    // 只有驻点漫游才分城际/市内两个视图
+    setHidden(document.getElementById('sceneSwitch'), !(plan && plan.scenes));
+
+    // 换路线时清掉旧瓦片，避免残留
+    clearTiles();
+
+    var idxs = sceneIndices(plan, sceneId);
+    buildTileOverlay(plan, sceneId);
+    fitTileView(plan, idxs);
+    renderTiles();
+    renderTileOverlay();
+    // 容器尺寸在下一帧才稳定，补渲染一次
+    window.setTimeout(function () {
+      if (tileActive) { renderTiles(); renderTileOverlay(); }
+    }, 0);
+  }
+
+  function hideTileMap() {
+    tileActive = false;
+    setMapMode('svg');
+    setHidden(tileMapEl, true);
+    setHidden(svg, false);
+    setHidden(scaleBarEl, true);
+    setHidden(document.getElementById('tileSeg'), true);
+    setHidden(document.getElementById('sceneSwitch'), true);
+  }
+
+  // 以视口内某点为锚点缩放（滚轮 / 按钮 / 双击共用）
+  function tileZoomAt(nz, mx, my) {
+    var d = tileDims(), w = d.w, h = d.h;
+    nz = Math.max(3, Math.min(18, nz));
+    var S0 = worldSize(tileView.zoom);
+    var ux = tileView.nx + (mx - w / 2) / S0;
+    var uy = tileView.ny + (my - h / 2) / S0;
+    tileView.zoom = nz;
+    var S1 = worldSize(nz);
+    tileView.nx = ux - (mx - w / 2) / S1;
+    tileView.ny = uy - (my - h / 2) / S1;
+    clampTileView();
+    renderTiles();
+    renderTileOverlay();
+  }
+
+  function zoomBy(step) {
+    if (tileActive) {
+      var d = tileDims();
+      tileZoomAt(tileView.zoom + step, d.w / 2, d.h / 2);
+    } else {
+      svgZoomAt(svgView.k * Math.pow(1.4, step), 450, 310);
+    }
+  }
+
+  /* --- 拖拽平移 --- */
+  // 拖拽监听挂在 window 上而不是用 setPointerCapture：
+  // 后者在部分浏览器里会把 click 重定向到容器，导致地点点击失效。
+  var tileDrag = null;
+  function onTileDragMove(ev) {
+    if (!tileDrag) return;
+    var S = worldSize(tileView.zoom);
+    tileDrag.moved = Math.max(tileDrag.moved,
+      Math.abs(ev.clientX - tileDrag.x) + Math.abs(ev.clientY - tileDrag.y));
+    tileView.nx = tileDrag.nx - (ev.clientX - tileDrag.x) / S;
+    tileView.ny = tileDrag.ny - (ev.clientY - tileDrag.y) / S;
+    clampTileView();
+    renderTiles();
+    renderTileOverlay();
+  }
+  function onTileDragEnd() {
+    window.removeEventListener('pointermove', onTileDragMove);
+    window.removeEventListener('pointerup', onTileDragEnd);
+    window.removeEventListener('pointercancel', onTileDragEnd);
+    if (!tileDrag) return;
+    // 位移超过 4px 视为平移，屏蔽随之而来的 click
+    if (tileDrag.moved > 4) {
+      suppressClick = true;
+      window.setTimeout(function () { suppressClick = false; }, 0);
+    }
+    tileDrag = null;
+    tileMapEl.classList.remove('dragging');
+  }
+  tileMapEl.addEventListener('pointerdown', function (ev) {
+    if (ev.button !== undefined && ev.button !== 0) return;
+    tileDrag = { x: ev.clientX, y: ev.clientY, nx: tileView.nx, ny: tileView.ny, moved: 0 };
+    suppressClick = false;
+    tileMapEl.classList.add('dragging');
+    window.addEventListener('pointermove', onTileDragMove);
+    window.addEventListener('pointerup', onTileDragEnd);
+    window.addEventListener('pointercancel', onTileDragEnd);
+  });
+
+  tileMapEl.addEventListener('wheel', function (ev) {
+    ev.preventDefault();
+    var r = tileMapEl.getBoundingClientRect();
+    var dz = -ev.deltaY * 0.0035;
+    dz = Math.max(-0.6, Math.min(0.6, dz));
+    tileZoomAt(tileView.zoom + dz, ev.clientX - r.left, ev.clientY - r.top);
+  }, { passive: false });
+
+  tileMapEl.addEventListener('dblclick', function () {
+    if (!tilePlan) return;
+    fitTileView(tilePlan);
+    renderTiles();
+    renderTileOverlay();
+  });
+
+  /* --- 手绘地图上的同款手势 --- */
+  var svgDrag = null;
+  function onSvgDragMove(ev) {
+    if (!svgDrag) return;
+    svgDrag.moved = Math.max(svgDrag.moved,
+      Math.abs(ev.clientX - svgDrag.x) + Math.abs(ev.clientY - svgDrag.y));
+    svgView.x = svgDrag.vx + (ev.clientX - svgDrag.x) / svgDrag.scale;
+    svgView.y = svgDrag.vy + (ev.clientY - svgDrag.y) / svgDrag.scale;
+    applySvgView();
+  }
+  function onSvgDragEnd() {
+    window.removeEventListener('pointermove', onSvgDragMove);
+    window.removeEventListener('pointerup', onSvgDragEnd);
+    window.removeEventListener('pointercancel', onSvgDragEnd);
+    if (!svgDrag) return;
+    if (svgDrag.moved > 4) {
+      suppressClick = true;
+      window.setTimeout(function () { suppressClick = false; }, 0);
+    }
+    svgDrag = null;
+    svg.classList.remove('dragging');
+  }
+  svg.addEventListener('pointerdown', function (ev) {
+    if (ev.button !== undefined && ev.button !== 0) return;
+    if (mapMode !== 'svg') return;
+    svgDrag = { x: ev.clientX, y: ev.clientY, vx: svgView.x, vy: svgView.y, moved: 0,
+                scale: (svg.getBoundingClientRect().width / 900) || 1 };
+    suppressClick = false;
+    svg.classList.add('dragging');
+    window.addEventListener('pointermove', onSvgDragMove);
+    window.addEventListener('pointerup', onSvgDragEnd);
+    window.addEventListener('pointercancel', onSvgDragEnd);
+  });
+
+  svg.addEventListener('wheel', function (ev) {
+    if (mapMode !== 'svg') return;
+    ev.preventDefault();
+    var p = svgEventPoint(ev);
+    svgZoomAt(svgView.k * Math.pow(1.0016, -ev.deltaY), p.x, p.y);
+  }, { passive: false });
+
+  svg.addEventListener('dblclick', function () { if (mapMode === 'svg') resetSvgView(); });
+
+  /* --- 工具条 --- */
+  document.getElementById('zoomIn').addEventListener('click', function () { zoomBy(1); });
+  document.getElementById('zoomOut').addEventListener('click', function () { zoomBy(-1); });
+  document.getElementById('zoomFit').addEventListener('click', function () {
+    if (tileActive && tilePlan) {
+      fitTileView(tilePlan);
+      renderTiles();
+      renderTileOverlay();
+      toast('已适应路线范围');
+    } else {
+      resetSvgView();
+      toast('已复位');
+    }
+  });
+
+  window.addEventListener('resize', function () {
+    if (tileActive) { renderTiles(); renderTileOverlay(); }
+  });
+
+  /* =========================================================
+   * 6. 详情面板 & 时间轴渲染
+   * =======================================================*/
+  var detailBody = document.getElementById('detailBody');
+  var timelineEl = document.getElementById('timeline');
+
+  function stars(n) { return '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n); }
+
+  function renderEmptyDetail() {
+    detailBody.innerHTML =
+      '<div class="detail-empty"><span class="big">🗺️</span>点击地图上的地点查看详情</div>';
+  }
+
+  function renderDetail(nd) {
+    var html = '';
+    html += '<div class="detail-card">';
+    html += '  <div class="dc-top">';
+    html += '    <div class="dc-icon" style="background:' + nd.color + '1a;border-color:' + nd.color + '55">' + nd.icon + '</div>';
+    html += '    <div class="dc-title">';
+    html += '      <span class="dc-type" style="color:' + nd.color + ';background:' + nd.color + '1a">' + nd.typeLabel + '</span>';
+    html += '      <div class="dc-name">' + esc(nd.name) + '</div>';
+    html += '    </div>';
+    html += '  </div>';
+
+    html += '  <div class="meta-grid">';
+    html += '    <div class="meta-item"><b>时间</b><span>' + fmtTime(nd.start) + '</span></div>';
+    html += '    <div class="meta-item"><b>时长</b><span>' + fmtDur(nd.duration) + '</span></div>';
+    html += '    <div class="meta-item"><b>费用</b><span style="color:' + nd.color + ';font-weight:650">' + yuan(nd.cost) + '</span></div>';
+    html += '    <div class="meta-item"><b>序号</b><span>第 ' + (nd.index + 1) + ' 站</span></div>';
+    html += '  </div>';
+
+    // 真实数据来源的补充信息（仅高德模式下存在）
+    if (nd.real && (nd.real.note || nd.real.address || nd.real.rating || nd.real.tel || nd.refCost)) {
+      html += '  <div class="sec-title">实时信息 · 高德</div>';
+      html += '  <div class="real-box">';
+      if (nd.real.note) html += '<div>🧭 ' + esc(nd.real.note) + '</div>';
+      if (nd.real.address) html += '<div>📍 ' + esc(nd.real.address) + '</div>';
+      if (nd.real.type) html += '<div>🏷️ ' + esc(nd.real.type) + '</div>';
+      if (nd.real.rating) html += '<div>⭐ 高德评分 ' + esc(nd.real.rating) + '</div>';
+      if (nd.refCost) html += '<div>💰 参考人均 ¥' + esc(nd.refCost) + '</div>';
+      if (nd.real.tel) html += '<div>☎️ ' + esc(nd.real.tel) + '</div>';
+      html += '  </div>';
+    }
+
+    // 到上一站的交通方式与耗时（重排后自动刷新）
+    if (nd.legFromPrev) {
+      html += '  <div class="sec-title">从上一站</div>';
+      html += '  <div class="real-box">' +
+                '<div>🚏 ' + esc(legText(nd.legFromPrev)) +
+                (nd.legFromPrev.km ? ' · ' + nd.legFromPrev.km.toFixed(1) + ' 公里' : '') +
+                (nd.legFromPrev.approx ? ' · 估算值' : ' · 高德路径规划') + '</div>' +
+              '</div>';
+    }
+
+    html += '  <div class="sec-title">行程描述</div>';
+    html += '  <div class="dc-desc">' + esc(nd.descBase || nd.desc) + '</div>';
+
+    html += '  <div class="sec-title">小贴士</div>';
+    html += '  <div class="tip-box">💡 ' + esc(nd.tip) + '</div>';
+
+    html += '  <div class="sec-title">旅友评论 · ' + nd.comments.length + ' 条</div>';
+    nd.comments.forEach(function (c) {
+      html += '<div class="comment">';
+      html += '  <div class="avatar">' + esc(c.name.slice(0, 2)) + '</div>';
+      html += '  <div class="cm-body">';
+      html += '    <div class="cm-head"><span class="cm-name">' + esc(c.name) + '</span><span class="cm-stars">' + stars(c.rating) + '</span></div>';
+      html += '    <div class="cm-text">' + esc(c.text) + '</div>';
+      html += '    <div class="cm-date">' + esc(c.date) + '</div>';
+      html += '  </div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    detailBody.innerHTML = html;
+  }
+
+  function renderTimeline(plan) {
+    timelineEl.innerHTML = '';
+    timelineEl.classList.remove('reordering');
+    var sumEl = document.getElementById('tlSum');
+    if (sumEl) sumEl.innerHTML = '';
+    var groups;
+    if (plan.scenes) {
+      // 驻点漫游：时间轴分「路线导航」（去程+返程）与「景区漫游」（按天）两段
+      var inter = [], city = [];
+      plan.nodes.forEach(function (nd) { (nd.section === 'inter' ? inter : city).push(nd); });
+      groups = [{ label: '路线导航', nodes: inter }, { label: '景区漫游', nodes: city }];
+    } else {
+      groups = [{ label: null, nodes: plan.nodes }];
+    }
+
+    var travelMin = 0, stayMin = 0;
+    var modeMin = {};
+
+    groups.forEach(function (grp) {
+      if (!grp.nodes.length) return;
+      if (grp.label) {
+        var sh = document.createElement('div');
+        sh.className = 'tl-section';
+        sh.textContent = grp.label;
+        timelineEl.appendChild(sh);
+      }
+      var lastDay = null;
+      grp.nodes.forEach(function (nd) {
+        // 跨天时插入一个日期分隔条（天数直接由起始分钟推导，模拟/真实数据通用）
+        var day = nd.day || (Math.floor((nd.start || 0) / 1440) + 1);
+        if (day !== lastDay) {
+          var sep = document.createElement('div');
+          sep.className = 'tl-day';
+          sep.textContent = '第 ' + day + ' 天';
+          timelineEl.appendChild(sep);
+          lastDay = day;
+        }
+
+        // 每张卡片连同它前面的「怎么过去」组成一个可拖拽的组
+        var wrap = document.createElement('div');
+        wrap.className = 'tl-group';
+        wrap.setAttribute('data-index', String(nd.index));
+        wrap.setAttribute('data-section', nd.section || 'city');
+
+        if (nd.legFromPrev) {
+          var leg = nd.legFromPrev;
+          var lw = document.createElement('div');
+          lw.className = 'tl-leg';
+          lw.innerHTML = '<span class="tl-leg-arrow">→</span>' +
+                         '<span class="tl-leg-lbl">' + esc(legText(leg)) + '</span>' +
+                         (leg.km ? '<span class="tl-leg-km">' + leg.km.toFixed(1) + ' km</span>' : '');
+          wrap.appendChild(lw);
+          travelMin += leg.minutes || 0;
+          modeMin[leg.mode] = (modeMin[leg.mode] || 0) + (leg.minutes || 0);
+        }
+
+        var card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'tl-card';
+        card.style.borderLeftColor = nd.color;
+        card.dataset.index = String(nd.index);
+        card.innerHTML =
+          '<div class="tl-time">' + fmtTime(nd.start) + '</div>' +
+          '<div class="tl-name">' + nd.icon + ' ' + esc(nd.name) + '</div>' +
+          '<div class="tl-cost" style="color:' + nd.color + '">' + yuan(nd.cost) + '</div>' +
+          '<div class="tl-stay">停留 ' + fmtDur(nd.duration) + '</div>';
+        card.addEventListener('click', function () {
+          if (!suppressClick) select(nd.index);
+        });
+        wrap.appendChild(card);
+        timelineEl.appendChild(wrap);
+        nd.cardEl = card;
+        nd.groupEl = wrap;
+
+        if (nd.kindCode !== 'transport-out' && nd.kindCode !== 'transport-back') {
+          stayMin += nd.duration || 0;
+        }
+      });
+    });
+
+    // 在途 / 停留分开统计，避免把「游览时间」误当成「路上时间」
+    var modeParts = ['walking', 'bicycling', 'transit', 'driving']
+      .filter(function (m) { return modeMin[m]; })
+      .map(function (m) { return modeLabel(m) + ' ' + fmtDur(modeMin[m]); });
+
+    // 汇总条是滚动行之外的普通块级元素，不参与横向布局
+    if (sumEl) {
+      sumEl.innerHTML = '<b>在途合计</b> ' + fmtDur(travelMin) +
+                        '　·　<b>停留合计</b> ' + fmtDur(stayMin) +
+                        (modeParts.length ? '　·　<b>交通构成</b> ' + modeParts.join(' · ') : '');
+    }
+  }
+
+  function scrollCardIntoView(card) {
+    var target = card.offsetLeft - timelineEl.clientWidth / 2 + card.clientWidth / 2;
+    if (typeof timelineEl.scrollTo === 'function') {
+      timelineEl.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    } else {
+      timelineEl.scrollLeft = Math.max(0, target);
+    }
+  }
+
+  /* =========================================================
+   * 7. 状态与交互
+   * =======================================================*/
+  var state = { plan: null, selected: -1 };
+
+  function select(index) {
+    var plan = state.plan;
+    if (!plan) return;
+    var nd = plan.nodes[index];
+    if (!nd) return;
+    state.selected = index;
+
+    nodeEls.forEach(function (g, i) { g.classList.toggle('active', i === index); });
+    tileEls.forEach(function (g, i) { g.classList.toggle('active', i === index); });
+    plan.nodes.forEach(function (n) {
+      if (n.cardEl) n.cardEl.classList.toggle('active', n.index === index);
+    });
+
+    renderDetail(nd);
+    if (nd.cardEl) scrollCardIntoView(nd.cardEl);
+  }
+
+  function renderBudget(plan) {
+    var pct = Math.round(plan.ratio * 100);
+    var warn = plan.ratio > 0.9;
+    var fill = document.getElementById('barFill');
+    fill.style.width = Math.min(100, pct) + '%';
+    fill.classList.toggle('warn', warn);
+    document.getElementById('budgetAmt').textContent = yuan(plan.allocated) + ' / ' + yuan(plan.budget);
+    var note = document.getElementById('budgetNote');
+    note.textContent = '已分配 ' + pct + '% · 剩余 ' + yuan(plan.budget - plan.allocated) +
+                       (warn ? '（预算偏紧，建议留出浮动）' : '');
+    note.classList.toggle('warn', warn);
+  }
+
+  function renderPlan(plan, routeKey) {
+    state.plan = plan;
+    state.selected = -1;
+    state.routeKey = routeKey || ('gen_' + plan.seed);
+
+    // 有真实经纬度就走瓦片地图，否则用手绘抽象地图
+    var hasGeo = plan.source === 'amap' && plan.nodes.length > 1 &&
+      plan.nodes.every(function (n) {
+        return typeof n.lng === 'number' && typeof n.lat === 'number' &&
+               isFinite(n.lng) && isFinite(n.lat);
+      });
+    if (hasGeo) {
+      mapScene = plan.scenes ? 'inter' : 'city';
+      showTileMap(plan, mapScene);
+      syncSceneButtons();
+    } else {
+      hideTileMap();
+      drawMap(plan);
+    }
+    renderTimeline(plan);
+    renderBudget(plan);
+    renderEmptyDetail();
+
+    var isReal = plan.source === 'amap';
+    var spanText;
+    if (plan.meta && plan.meta.calDays) {
+      spanText = plan.meta.calDays + ' 天' +
+                 (plan.meta.nights ? ' ' + plan.meta.nights + ' 晚' : '') + ' · ';
+    } else {
+      spanText = '全程约 ' + Math.round((plan.totalSpan || 0) / 60) + ' 小时 · ';
+    }
+    document.getElementById('mapMeta').textContent =
+      plan.from + ' → ' + plan.to + ' · ' + plan.nodes.length + ' 个地点 · ' +
+      spanText + (isReal ? '高德实时' : '模拟数据');
+    document.getElementById('tlMeta').textContent =
+      plan.duration + 'h 方案 · 合计 ' + yuan(plan.nodes.reduce(function (s, n) { return s + n.cost; }, 0));
+
+    // 把生成规则写在明面上，避免「逻辑不明」
+    var note = document.getElementById('routeNote');
+    if (note) {
+      if (isReal && plan.meta) {
+        var approx = plan.meta.approxLegs || 0;
+        if (plan.imported) {
+          note.innerHTML = '<b>导入行程：</b>' +
+            '① 站点、时间、费用均来自粘贴的行程文本，未做改动；' +
+            '② 地点坐标由高德按地点名检索得到，段与段之间用高德实时路径补全折线' +
+            (approx ? '（其中 ' + approx + ' 段为估算）' : '') + '；' +
+            '③ 文中标注了车程/票价的段，时间与方式沿用原文，其余按距离自动判定；' +
+            '④ 拖动时间轴卡片可调整顺序并重新规划。';
+        } else {
+          note.innerHTML = '<b>路线生成：</b>' +
+          '① <b>路线导航</b>只生成 ' + esc(plan.from) + ' ⇄ ' + esc(plan.to) +
+          ' 的去程与返程两个节点，地图「路线导航」视图只画两地之间的弧线；' +
+          '② <b>景区漫游</b>以 ' + esc(plan.meta.hub || '车站') + ' 为锚点，' +
+          '在 ' + (plan.meta.radiusKm ? plan.meta.radiusKm + ' 公里' : '市区') + '内取景点／餐饮／住宿，' +
+          '每天一片区、片内最近邻，地图「景区漫游」视图聚焦目的地；' +
+          '③ 段间按距离自动选择步行／骑行／公交地铁／驾车，取高德实时路径与用时' +
+          (approx ? '（其中 ' + approx + ' 段降级为估算）' : '') + '；' +
+          '④ 预算先从总额中扣除往返城际交通' +
+          (plan.meta.interTotal ? '（约 ' + yuan(plan.meta.interTotal) + '）' : '') +
+          '，余额再分配给住宿、餐饮与市内交通。';
+        }
+      } else {
+        note.textContent = '模拟数据模式：地点、坐标与时间为随机生成，仅用于演示；真实地图与路径规划需切换到「真实数据」。';
+      }
+    }
+
+    renderComments();
+  }
+
+  /* =========================================================
+   * 8. 表单绑定
+   * =======================================================*/
+  var originEl = document.getElementById('origin');
+  var destEl = document.getElementById('dest');
+  var budgetEl = document.getElementById('budget');
+  var budgetLabel = document.getElementById('budgetLabel');
+  var duration = 48;
+
+  function syncRange() {
+    var min = +budgetEl.min, max = +budgetEl.max, v = +budgetEl.value;
+    var p = ((v - min) / (max - min)) * 100;
+    budgetEl.style.setProperty('--p', p + '%');
+    budgetLabel.textContent = yuan(v);
+  }
+  budgetEl.addEventListener('input', syncRange);
+  syncRange();
+
+  document.getElementById('seg').addEventListener('click', function (ev) {
+    var btn = ev.target.closest('button[data-hours]');
+    if (!btn) return;
+    duration = +btn.dataset.hours;
+    Array.prototype.forEach.call(this.querySelectorAll('button'), function (b) {
+      var on = b === btn;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  });
+
+  /* --- 数据源切换：模拟 / 高德真实数据 --- */
+  var currentSource = 'mock';
+  var LS_SOURCE = 'jp.source.v1';
+
+  function applySource(src, silent) {
+    currentSource = (src === 'amap') ? 'amap' : 'mock';
+    var seg = document.getElementById('srcSeg');
+    Array.prototype.forEach.call(seg.querySelectorAll('button'), function (b) {
+      b.classList.toggle('active', b.dataset.src === currentSource);
+      b.setAttribute('aria-pressed', b.dataset.src === currentSource ? 'true' : 'false');
+    });
+    document.getElementById('keyField').hidden = currentSource !== 'amap';
+    if (!silent) lsSet(LS_SOURCE, currentSource);
+  }
+
+  document.getElementById('srcSeg').addEventListener('click', function (ev) {
+    var btn = ev.target.closest('button[data-src]');
+    if (!btn) return;
+    applySource(btn.dataset.src);
+    if (currentSource === 'amap' && !amapKey()) toast('请先填写高德 Web 服务 Key');
+  });
+
+  var amapKeyEl = document.getElementById('amapKey');
+  var keyStateEl = document.getElementById('keyState');
+  var keyOnLoad = lsGet(LS_AMAP_KEY, '');
+  if (keyOnLoad) {
+    amapKeyEl.value = keyOnLoad;
+    keyStateEl.textContent = '已保存';
+  }
+  amapKeyEl.addEventListener('input', function () {
+    var v = this.value.trim();
+    lsSet(LS_AMAP_KEY, v);
+    keyStateEl.textContent = v ? '已保存' : '';
+  });
+
+  function currentInput() {
+    return {
+      from: originEl.value, to: destEl.value,
+      budget: +budgetEl.value, duration: duration, mode: 'hub',
+      fromHint: pickedPlace.origin, toHint: pickedPlace.dest
+    };
+  }
+
+  var generateBtn = document.getElementById('generate');
+  function setBusy(on) {
+    generateBtn.disabled = !!on;
+    generateBtn.textContent = on ? '规划中…' : '生成行程';
+    generateBtn.style.opacity = on ? '0.72' : '';
+    generateBtn.style.cursor = on ? 'progress' : '';
+  }
+
+  function generatePlan() {
+    if (generateBtn.disabled) return;
+    var input = currentInput();
+
+    // 模拟数据：同步渲染
+    if (currentSource !== 'amap') {
+      renderPlan(buildMockPlan(input));
+      return;
+    }
+
+    // 真实数据：异步请求，任何异常都回退到模拟数据，保证页面始终可用
+    setBusy(true);
+    fetchPlan(input).then(function (plan) {
+      setBusy(false);
+      renderPlan(plan, 'amap_' + plan.seed);
+      var extra = plan.meta && plan.meta.distanceKm ? ' · 城际约 ' + plan.meta.distanceKm + ' 公里' : '';
+      toast('已接入高德实时数据 · ' + plan.nodes.length + ' 个真实地点' + extra);
+    }).catch(function (e) {
+      setBusy(false);
+      console.error('[amap]', e);
+      toast(amapErrorText(e) + '，已回退模拟数据');
+      renderPlan(buildMockPlan(input));
+    });
+  }
+
+  // 恢复上次选择的数据源
+  applySource(lsGet(LS_SOURCE, 'mock'), true);
+
+  /* --- 底图图层切换（真实数据模式）：直接决定是否显示铁路/高速/注记 --- */
+  var tileSegEl = document.getElementById('tileSeg');
+  tileLtype = parseInt(lsGet(LS_LTYPE, 1), 10);
+  if (![1, 3, 8, 0].some(function (v) { return v === tileLtype; })) tileLtype = 1;
+
+  function applyTileLtype(v) {
+    tileLtype = v;
+    lsSet(LS_LTYPE, v);
+    Array.prototype.forEach.call(tileSegEl.querySelectorAll('button'), function (b) {
+      b.classList.toggle('active', parseInt(b.dataset.ltype, 10) === v);
+    });
+    if (tileActive && tilePlan) {
+      clearTiles();
+      renderTiles();
+    }
+  }
+  tileSegEl.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('button[data-ltype]');
+    if (!btn) return;
+    applyTileLtype(parseInt(btn.dataset.ltype, 10));
+  });
+  applyTileLtype(tileLtype);
+
+  /* --- 城际 / 市内 视图切换（仅驻点漫游） --- */
+  var sceneSwitchEl = document.getElementById('sceneSwitch');
+  function syncSceneButtons() {
+    Array.prototype.forEach.call(sceneSwitchEl.querySelectorAll('button'), function (b) {
+      b.classList.toggle('active', b.dataset.scene === mapScene);
+    });
+  }
+  sceneSwitchEl.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('button[data-scene]');
+    if (!btn || !tileActive || !state.plan || !state.plan.scenes) return;
+    mapScene = btn.dataset.scene;
+    syncSceneButtons();
+    showTileMap(state.plan, mapScene);
+    toast(mapScene === 'inter' ? '路线导航视图' : '景区漫游视图');
+  });
+
+  /* --- 路线模式：已统一为「驻点漫游」（沿途漫游已移除） --- */
+  document.getElementById('generate').addEventListener('click', generatePlan);
+
+  // 输入框的回车已在联想组件里处理（有候选则选中，无候选则生成）
+
+  /* =========================================================
+   * 9. 提示 / 遮罩
+   * =======================================================*/
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function toast(msg) {
+    if (!toastEl) return;
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    if (toastTimer) window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(function () { toastEl.classList.remove('show'); }, 2600);
+  }
+
+  var overlayEl = document.getElementById('overlay');
+  function closeOverlay() {
+    overlayEl.hidden = true;
+    overlayEl.innerHTML = '';
+  }
+  function openImage(src) {
+    overlayEl.innerHTML = '<img src="' + src + '" alt="评论图片">';
+    overlayEl.hidden = false;
+  }
+  overlayEl.addEventListener('click', function (ev) {
+    if (ev.target.closest('[data-close]')) { closeOverlay(); return; }
+    if (ev.target.closest('[data-select]')) {
+      var inp = document.getElementById('shareInput');
+      if (inp) { inp.focus(); inp.select(); }
+      return;
+    }
+    if (ev.target.closest('[data-parse]')) {
+      var tbox = document.getElementById('itinInput');
+      runItineraryImport(tbox ? tbox.value : '');
+      return;
+    }
+    if (ev.target === overlayEl) closeOverlay();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && !overlayEl.hidden) closeOverlay();
+  });
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+  }
+
+  /* =========================================================
+   * 10. 本地存储层
+   * =======================================================*/
+  var LS_ROUTES = 'jp.routes.v1';
+  var LS_COMMUNITY = 'jp.community.v1';
+  var LS_COMMENTS = 'jp.comments.v1';
+
+  function lsGet(key, fallback) {
+    try {
+      var raw = window.localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) { return fallback; }
+  }
+  function lsSet(key, val) {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(val));
+      return true;
+    } catch (e) {
+      toast('本地存储空间不足，本次改动未保存');
+      return false;
+    }
+  }
+
+  var store = {
+    routes: lsGet(LS_ROUTES, []),
+    community: lsGet(LS_COMMUNITY, []),
+    comments: lsGet(LS_COMMENTS, {})
+  };
+  if (!Array.isArray(store.routes)) store.routes = [];
+  if (!Array.isArray(store.community)) store.community = [];
+  if (!store.comments || typeof store.comments !== 'object' || Array.isArray(store.comments)) store.comments = {};
+
+  var uidSeq = 0;
+  function uid(prefix) {
+    uidSeq++;
+    return prefix + Date.now().toString(36) + uidSeq.toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+  function fmtStamp(ts) {
+    var d = new Date(ts);
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) +
+           ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+  function pickStatic(arr, i) { return arr[((i % arr.length) + arr.length) % arr.length]; }
+
+  // 序列化为纯数据（丢弃渲染期挂上的 DOM 引用）
+  function plainPlan(plan) {
+    return {
+      from: plan.from, to: plan.to, budget: plan.budget, duration: plan.duration,
+      seed: plan.seed, allocated: plan.allocated, ratio: plan.ratio, totalSpan: plan.totalSpan,
+      source: plan.source || 'mock',
+      mode: 'hub',
+      scenes: plan.scenes || null,
+      meta: plan.meta || null,
+      legs: plan.legs || null,
+      nodes: plan.nodes.map(function (nd) {
+        return {
+          index: nd.index, kind: nd.kind, kindCode: nd.kindCode, typeLabel: nd.typeLabel,
+          name: nd.name, icon: nd.icon, color: nd.color, weight: nd.weight, cost: nd.cost,
+          start: nd.start, duration: nd.duration, end: nd.end, desc: nd.desc, tip: nd.tip,
+          comments: nd.comments, x: nd.x, y: nd.y, day: nd.day, section: nd.section,
+          descBase: nd.descBase,
+          real: nd.real || null, refCost: nd.refCost || 0, lng: nd.lng, lat: nd.lat
+        };
+      })
+    };
+  }
+  function clonePlan(plan) { return JSON.parse(JSON.stringify(plan)); }
+
+  /* =========================================================
+   * 11. 路线评论
+   * =======================================================*/
+  var cmListEl = document.getElementById('cmList');
+  var cmUserEl = document.getElementById('cmUser');
+  var cmTextEl = document.getElementById('cmText');
+  var cmImageEl = document.getElementById('cmImage');
+  var cmPreviewEl = document.getElementById('cmPreview');
+  var cmPreviewImg = document.getElementById('cmPreviewImg');
+  var pendingImage = null;
+
+  function commentsOf(key) { return (key && store.comments[key]) ? store.comments[key] : []; }
+
+  function routeLabel() {
+    var p = state.plan;
+    if (!p) return '—';
+    var kind = (state.routeKey && state.routeKey.indexOf('gen_') === 0) ? '临时生成' : '已保存路线';
+    return p.from + ' → ' + p.to + ' · ' + p.duration + 'h · ' + kind;
+  }
+
+  function renderComments() {
+    document.getElementById('cmRouteMeta').textContent = routeLabel();
+
+    var list = commentsOf(state.routeKey).slice().sort(function (a, b) { return b.ts - a.ts; });
+    if (!list.length) {
+      cmListEl.innerHTML = '<div class="empty-tip">这条路线还没有评论<br>写下第一条旅行记录吧 ✍️</div>';
+    } else {
+      cmListEl.innerHTML = list.map(function (c) {
+        var user = c.user || '旅行者';
+        var img = c.image ? '<img class="cm-thumb" src="' + c.image + '" alt="评论图片" data-zoom="1">' : '';
+        return '<div class="cm-item" data-id="' + c.id + '">' +
+                 '<div class="avatar">' + esc(user.slice(0, 2)) + '</div>' +
+                 '<div class="cm-main">' +
+                   '<div class="cm-row">' +
+                     '<span class="cm-user">' + esc(user) + '</span>' +
+                     '<span class="cm-time">' + fmtStamp(c.ts) + '</span>' +
+                     '<button class="cm-del" type="button" data-del="' + c.id + '">删除</button>' +
+                   '</div>' +
+                   (c.text ? '<div class="cm-content">' + esc(c.text) + '</div>' : '') +
+                   img +
+                 '</div>' +
+               '</div>';
+      }).join('');
+    }
+
+    // 评论数变化时同步刷新路线卡片
+    renderMyRoutes();
+    renderCommunity();
+  }
+
+  cmListEl.addEventListener('click', function (ev) {
+    var img = ev.target.closest('img[data-zoom]');
+    if (img) { openImage(img.getAttribute('src')); return; }
+
+    var del = ev.target.closest('button[data-del]');
+    if (del) {
+      var key = state.routeKey;
+      store.comments[key] = commentsOf(key).filter(function (x) { return x.id !== del.getAttribute('data-del'); });
+      lsSet(LS_COMMENTS, store.comments);
+      renderComments();
+      toast('评论已删除');
+    }
+  });
+
+  // 图片：压缩后转 base64，避免撑爆 localStorage
+  function compressImage(file, cb) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var src = e.target.result;
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var MAX = 900;
+          var w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            var s = Math.min(MAX / w, MAX / h);
+            w = Math.round(w * s); h = Math.round(h * s);
+          }
+          var cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          cv.getContext('2d').drawImage(img, 0, 0, w, h);
+          cb(cv.toDataURL('image/jpeg', 0.72));
+        } catch (err) { cb(src); }
+      };
+      img.onerror = function () { cb(src); };
+      img.src = src;
+    };
+    reader.onerror = function () { toast('图片读取失败，请重试'); };
+    reader.readAsDataURL(file);
+  }
+
+  cmImageEl.addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    if (!/^image\//.test(f.type)) { toast('请选择图片文件'); this.value = ''; return; }
+    compressImage(f, function (dataUrl) {
+      pendingImage = dataUrl;
+      cmPreviewImg.src = dataUrl;
+      cmPreviewEl.hidden = false;
+    });
+  });
+
+  document.getElementById('cmPreviewDel').addEventListener('click', function () {
+    pendingImage = null;
+    cmPreviewImg.removeAttribute('src');
+    cmPreviewEl.hidden = true;
+    cmImageEl.value = '';
+  });
+
+  function randomUser() {
+    var pool = ['旅行者', '背包客', '路过的人', '赶路人', '自由行客'];
+    return pool[Math.floor(Math.random() * pool.length)] + (Math.floor(Math.random() * 90) + 10);
+  }
+
+  document.getElementById('cmSubmit').addEventListener('click', function () {
+    if (!state.routeKey) { toast('请先生成一条路线'); return; }
+    var text = cmTextEl.value.trim();
+    if (!text && !pendingImage) { toast('请输入评论内容或选择一张图片'); return; }
+
+    var user = cmUserEl.value.trim() || randomUser();
+    var comment = { id: uid('cm'), user: user, text: text, image: pendingImage, ts: Date.now() };
+    store.comments[state.routeKey] = [comment].concat(commentsOf(state.routeKey));
+    lsSet(LS_COMMENTS, store.comments);
+
+    cmTextEl.value = '';
+    cmUserEl.value = '';
+    pendingImage = null;
+    cmPreviewImg.removeAttribute('src');
+    cmPreviewEl.hidden = true;
+    cmImageEl.value = '';
+
+    renderComments();
+    toast('评论已发表');
+  });
+
+  /* =========================================================
+   * 12. 我的路线：保存 / 加载 / 分享
+   * =======================================================*/
+  function saveCurrentRoute() {
+    var p = state.plan;
+    if (!p) { toast('还没有可保存的路线'); return; }
+
+    var id = uid('r_');
+    // 复制当前路线的评论到新 ID 下，实现「路线 + 评论」一起保存
+    var cur = commentsOf(state.routeKey);
+    if (cur.length) {
+      store.comments[id] = cur.map(function (c) {
+        return { id: uid('cm'), user: c.user, text: c.text, image: c.image, ts: c.ts };
+      });
+      lsSet(LS_COMMENTS, store.comments);
+    }
+
+    store.routes.unshift({
+      id: id, from: p.from, to: p.to, budget: p.budget, duration: p.duration,
+      allocated: p.allocated, savedAt: Date.now(), plan: plainPlan(p)
+    });
+    if (!lsSet(LS_ROUTES, store.routes)) { store.routes.shift(); return; }
+
+    state.routeKey = id;            // 沙盘切到刚保存的路线，后续评论归属它
+    renderMyRoutes();
+    renderCommunity();
+    renderComments();
+    toast('已保存到「我的路线」');
+  }
+
+  function renderMyRoutes() {
+    var el = document.getElementById('myList');
+    document.getElementById('myMeta').textContent = store.routes.length + ' 条';
+    if (!store.routes.length) {
+      el.innerHTML = '<div class="empty-tip">还没有保存的路线<br>生成行程后点「保存当前路线」</div>';
+      return;
+    }
+    el.innerHTML = store.routes.map(function (r) {
+      var spent = r.plan.nodes.reduce(function (s, n) { return s + n.cost; }, 0);
+      var cur = state.routeKey === r.id ? ' current' : '';
+      return '<div class="rt-card' + cur + '" data-id="' + r.id + '">' +
+        '<div class="rt-head">' +
+          '<span class="rt-route">' + esc(r.from) + '<span class="arrow">→</span>' + esc(r.to) + '</span>' +
+          '<span class="rt-badge">' + r.duration + 'h</span>' +
+        '</div>' +
+        '<div class="rt-meta">' +
+          '<span><b>预算</b>' + yuan(r.budget) + '</span>' +
+          '<span><b>花费</b>' + yuan(spent) + '</span>' +
+          '<span><b>地点</b>' + r.plan.nodes.length + ' 个</span>' +
+          '<span><b>评论</b>' + commentsOf(r.id).length + ' 条</span>' +
+        '</div>' +
+        '<div class="rt-meta"><span>' + fmtStamp(r.savedAt) + ' 保存</span></div>' +
+        '<div class="rt-actions">' +
+          '<button class="mini-btn primary" type="button" data-act="load">加载</button>' +
+          '<button class="mini-btn" type="button" data-act="share">分享</button>' +
+          '<button class="mini-btn danger" type="button" data-act="del">删除</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  document.getElementById('myList').addEventListener('click', function (ev) {
+    var btn = ev.target.closest('button[data-act]');
+    if (!btn) return;
+    var card = btn.closest('.rt-card');
+    var rid = card.getAttribute('data-id');
+    var r = store.routes.filter(function (x) { return x.id === rid; })[0];
+    if (!r) return;
+    var act = btn.getAttribute('data-act');
+
+    if (act === 'load') {
+      loadRoute(clonePlan(r.plan), r.id, '已加载「' + r.from + ' → ' + r.to + '」');
+    } else if (act === 'share') {
+      shareRoute(r.id, r.from, r.to);
+    } else if (act === 'del') {
+      if (!window.confirm('删除这条路线？该操作不可撤销。')) return;
+      store.routes = store.routes.filter(function (x) { return x.id !== rid; });
+      lsSet(LS_ROUTES, store.routes);
+      if (state.routeKey === rid && state.plan) state.routeKey = 'gen_' + state.plan.seed;
+      renderMyRoutes();
+      renderComments();
+      toast('路线已删除');
+    }
+  });
+
+  function loadRoute(plan, key, msg) {
+    renderPlan(plan, key);
+    var panel = document.querySelector('.map-panel');
+    if (panel && panel.scrollIntoView) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (msg) toast(msg);
+  }
+
+  /* =========================================================
+   * 12.5 时间轴拖拽重排 + 重新规划
+   *      （原先独立的「查看行程」面板已并入时间轴：
+   *        每张卡片前面的「怎么过去」就是段信息，整组可横向拖动）
+   * =======================================================*/
+  function tlGroups() {
+    return Array.prototype.slice.call(timelineEl.querySelectorAll('.tl-group'));
+  }
+
+  var tlDrag = null;
+
+  function onTlMove(ev) {
+    if (!tlDrag) return;
+    if (!tlDrag.moved && Math.abs(ev.clientX - tlDrag.startX) < 5) return;
+    if (!tlDrag.moved) {
+      tlDrag.moved = true;
+      timelineEl.classList.add('reordering');
+    }
+    var others = tlGroups().filter(function (x) { return x !== tlDrag.el; });
+    var target = null;
+    for (var i = 0; i < others.length; i++) {
+      var r = others[i].getBoundingClientRect();
+      if (ev.clientX < r.left + r.width / 2) { target = others[i]; break; }
+    }
+    if (target) timelineEl.insertBefore(tlDrag.el, target);
+    else timelineEl.appendChild(tlDrag.el);
+  }
+
+  function onTlUp() {
+    window.removeEventListener('pointermove', onTlMove);
+    window.removeEventListener('pointerup', onTlUp);
+    window.removeEventListener('pointercancel', onTlUp);
+    if (!tlDrag) return;
+    tlDrag.el.classList.remove('dragging');
+    var moved = tlDrag.moved;
+    tlDrag = null;
+    timelineEl.classList.remove('reordering');
+    if (moved) commitTlOrder();
+  }
+
+  timelineEl.addEventListener('pointerdown', function (ev) {
+    if (tlDrag) return;
+    if (ev.button !== undefined && ev.button !== 0) return;
+    var group = ev.target.closest ? ev.target.closest('.tl-group') : null;
+    if (!group) return;
+    // 城际两端固定在「路线导航」段，不参与拖动
+    var gi = +group.getAttribute('data-index');
+    var gnd = state.plan && state.plan.nodes ? state.plan.nodes[gi] : null;
+    if (gnd && gnd.section === 'inter') return;
+    if (ev.preventDefault) ev.preventDefault();
+    tlDrag = { el: group, startX: ev.clientX, moved: false };
+    group.classList.add('dragging');
+    window.addEventListener('pointermove', onTlMove);
+    window.addEventListener('pointerup', onTlUp);
+    window.addEventListener('pointercancel', onTlUp);
+  });
+
+  function commitTlOrder() {
+    var plan = state.plan;
+    if (!plan) return;
+    var order = tlGroups().map(function (g) { return +g.getAttribute('data-index'); });
+    var picked = order.map(function (i) { return plan.nodes[i]; });
+
+    var nodes;
+    if (plan.imported) {
+      // 导入的行程没有严格的首尾城际节点，允许自由重排
+      nodes = picked;
+      if (!nodes.length) { renderTimeline(plan); return; }
+    } else if (plan.scenes) {
+      // 两段式：城际两端固定首尾，中间按时间轴上市内段的先后顺序重排
+      var head = null, tail = null, mid = [];
+      picked.forEach(function (nd) {
+        if (nd.kindCode === 'transport-out') head = nd;
+        else if (nd.kindCode === 'transport-back') tail = nd;
+        else mid.push(nd);
+      });
+      if (!head || !tail) {
+        toast('城际两端缺失，无法重排');
+        renderTimeline(plan);
+        return;
+      }
+      nodes = [head].concat(mid, [tail]);
+    } else {
+      nodes = picked;
+      if (nodes[0].kindCode !== 'transport-out' || nodes[nodes.length - 1].kindCode !== 'transport-back') {
+        toast('去程与返程需分别位于首尾，本次调整已取消');
+        renderTimeline(plan);
+        return;
+      }
+    }
+    toast('正在按新顺序重新规划路线…');
+    replanOrder(nodes).then(function (updated) {
+      renderPlan(updated, state.routeKey);
+      toast('已按新顺序重新规划（' + updated.nodes.length + ' 站）');
+    }).catch(function (e) {
+      console.error('[replan]', e);
+      toast('重新规划失败，已还原原顺序');
+      renderTimeline(plan);
+    });
+  }
+
+  // 按新顺序重算各段路线与时间；固定首日 07:30 出发、每天 08:30 开始
+  function replanOrder(ordered) {
+    var plan = state.plan;
+    var isReal = plan && plan.source === 'amap';
+    var pairs = [];
+    for (var i = 0; i < ordered.length - 1; i++) pairs.push([ordered[i], ordered[i + 1]]);
+
+    var legPromise = isReal
+      ? mapLimit(pairs, 2, function (p) {
+          return amapLeg(p[0], p[1], plan && plan.meta ? plan.meta.cityAdcode : '');
+        })
+      : Promise.resolve(pairs.map(function () {
+          return { mode: 'walking', minutes: 15, km: 1.2, polyline: [], approx: true };
+        }));
+
+    return legPromise.then(function (legs) {
+      var cursor = 7 * 60 + 30, dayNo = 1, legsOut = [];
+      var outDur = ordered[0].duration || 90;
+
+      ordered.forEach(function (nd, i) {
+        if (i === 0) {
+          nd.start = cursor; nd.duration = outDur; nd.end = cursor + outDur;
+          nd.day = 1; nd.legFromPrev = null; nd.index = 0;
+          cursor = nd.end;
+          return;
+        }
+        var leg = legs[i - 1];
+        cursor += leg.minutes;
+        legsOut.push(leg.polyline);
+        nd.legFromPrev = leg;
+        nd.index = i;
+        if (nd.kind === 'lodging') {
+          var nextMorning = dayNo * 1440 + (8 * 60 + 30);
+          nd.duration = Math.max(360, nextMorning - cursor);
+          nd.start = cursor; nd.end = cursor + nd.duration; nd.day = dayNo;
+          cursor += nd.duration; dayNo += 1;
+        } else {
+          nd.start = cursor; nd.end = cursor + nd.duration; nd.day = dayNo;
+          cursor += nd.duration;
+        }
+      });
+
+      var updated = {};
+      for (var k in plan) {
+        if (Object.prototype.hasOwnProperty.call(plan, k)) updated[k] = plan[k];
+      }
+      updated.nodes = ordered;
+      updated.legs = legsOut;
+      updated.totalSpan = ordered[ordered.length - 1].end - (7 * 60 + 30);
+      return updated;
+    });
+  }
+
+  /* =========================================================
+   * 13. 分享 / 导入：把路线编进链接本体，换台机器也能打开
+   * =======================================================*/
+  function b64enc(str) {
+    var bytes = new TextEncoder().encode(str);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i += 0x8000) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64dec(str) {
+    var s = String(str).replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    var bin = atob(s);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+  function r4(v) { return (typeof v === 'number' && isFinite(v)) ? Math.round(v * 1e4) / 1e4 : 0; }
+
+  // 只编码重建路线所必需的字段；文案与评论在导入端按同一套规则重新生成
+  function encodePlan(plan) {
+    var payload = {
+      v: 1,
+      f: plan.from, t: plan.to, b: plan.budget, d: plan.duration,
+      m: 'hub',
+      s: plan.source || 'mock',
+      n: plan.nodes.map(function (nd) {
+        return [nd.name, nd.kindCode, r4(nd.lng), r4(nd.lat),
+                nd.cost, nd.start, nd.duration, nd.day || 1, nd.section || 'city'];
+      }),
+      lg: plan.nodes.map(function (nd) {
+        return nd.legFromPrev
+          ? [nd.legFromPrev.mode, nd.legFromPrev.minutes, Math.round((nd.legFromPrev.km || 0) * 10) / 10]
+          : null;
+      }),
+      l: (plan.legs || []).map(function (poly) {
+        var p = poly || [];
+        if (!p.length) return '';
+        var step = Math.max(1, Math.ceil(p.length / 20));
+        var out = [];
+        for (var i = 0; i < p.length; i += step) out.push(r4(p[i].lng) + ',' + r4(p[i].lat));
+        var last = p[p.length - 1];
+        var tail = r4(last.lng) + ',' + r4(last.lat);
+        if (out[out.length - 1] !== tail) out.push(tail);
+        return out.join(';');
+      }),
+      meta: plan.meta || null
+    };
+    return b64enc(JSON.stringify(payload));
+  }
+
+  function kindFromCode(code) {
+    if (code.indexOf('transport') === 0) return 'transport';
+    return TYPE_META[code] ? code : 'attraction';
+  }
+
+  function decodePlan(str) {
+    var payload = JSON.parse(b64dec(str));
+    if (!payload || payload.v !== 1) throw new Error('BAD_VERSION');
+
+    var seed = hashStr('import|' + str);
+    var rng = mulberry32(seed);
+    var ri = function (a, b) { return a + Math.floor(rng() * (b - a + 1)); };
+
+    var nodes = (payload.n || []).map(function (row, i) {
+      var kind = kindFromCode(String(row[1]));
+      var meta = TYPE_META[kind];
+      var dp = DESC_POOL[kind] || DESC_POOL.attraction;
+      var tp = TIP_POOL[kind] || TIP_POOL.attraction;
+      var nd = {
+        index: i, kind: kind, kindCode: String(row[1]),
+        typeLabel: row[1] === 'transport-out' ? '去程交通'
+                 : row[1] === 'transport-back' ? '返程交通' : meta.label,
+        name: String(row[0]), icon: meta.icon, color: meta.color, weight: WEIGHT[kind],
+        lng: +row[2], lat: +row[3], cost: +row[4] || 0,
+        start: +row[5] || 0, duration: +row[6] || 0,
+        day: +row[7] || 1, section: row[8] || 'city',
+        refCost: 0, real: null,
+        descBase: dp[ri(0, dp.length - 1)], tip: tp[ri(0, tp.length - 1)]
+      };
+      nd.end = nd.start + nd.duration;
+      nd.desc = nd.descBase;
+
+      var cCount = ri(2, 3), used = {};
+      nd.comments = [];
+      for (var c = 0; c < cCount; c++) {
+        var cname = COMMENT_NAMES[ri(0, COMMENT_NAMES.length - 1)];
+        var guard = 0;
+        while (used[cname] && guard++ < 20) cname = COMMENT_NAMES[ri(0, COMMENT_NAMES.length - 1)];
+        used[cname] = 1;
+        nd.comments.push({
+          name: cname, rating: ri(4, 5),
+          text: COMMENT_TEXTS[ri(0, COMMENT_TEXTS.length - 1)],
+          date: '2024-' + pad2(ri(1, 12)) + '-' + pad2(ri(1, 28))
+        });
+      }
+      return nd;
+    });
+    if (!nodes.length) throw new Error('EMPTY');
+
+    var legs = (payload.l || []).map(function (s) {
+      return String(s || '').split(';').filter(Boolean).map(function (pair) {
+        var q = pair.split(',');
+        return { lng: +q[0], lat: +q[1] };
+      });
+    });
+    var lg = payload.lg || [];
+    nodes.forEach(function (nd, i) {
+      if (i === 0) { nd.legFromPrev = null; return; }
+      var row = lg[i];
+      nd.legFromPrev = row
+        ? { mode: row[0], minutes: row[1], km: row[2], approx: true }
+        : null;
+    });
+
+    var spent = nodes.reduce(function (s, n) { return s + n.cost; }, 0);
+    var budget = +payload.b || 0;
+    var lastIdx = nodes.length - 1;
+
+    return {
+      from: payload.f, to: payload.t, budget: budget, duration: +payload.d || 48,
+      seed: seed, nodes: nodes, legs: legs,
+      allocated: spent, ratio: budget ? spent / budget : 0.88,
+      totalSpan: nodes[lastIdx].end - (7 * 60 + 30),
+      source: payload.s || 'amap', mode: 'hub',
+      scenes: [
+        { id: 'inter', label: '路线导航', indices: [0, lastIdx] },
+        { id: 'city',  label: '景区漫游', indices: citySceneIndices(lastIdx) }
+      ],
+      meta: payload.meta || null,
+      imported: true
+    };
+  }
+
+  function buildShareLink(plan) {
+    var base = location.href.split('#')[0];
+    return base + '#r=' + encodePlan(plan);
+  }
+
+  function doShare(plan, from, to) {
+    if (!plan) { toast('还没有可分享的路线'); return; }
+    var link;
+    try { link = buildShareLink(plan); }
+    catch (e) { console.error('[share]', e); toast('生成分享链接失败'); return; }
+
+    copyText(link, function (ok) {
+      if (ok) toast('分享链接已复制（' + link.length + ' 字符）· 换台设备也能打开');
+      else showShareModal(link, from, to);
+    });
+  }
+
+  function showShareModal(link, from, to) {
+    overlayEl.innerHTML =
+      '<div class="modal">' +
+        '<h3>分享路线：' + esc(from) + ' → ' + esc(to) + '</h3>' +
+        '<p>浏览器未允许自动复制，请手动复制下面的完整链接（已内嵌路线数据，换台设备也能打开）：</p>' +
+        '<textarea id="shareInput" readonly rows="4"></textarea>' +
+        '<div class="modal-actions">' +
+          '<button class="mini-btn" data-select="1" type="button">全选</button>' +
+          '<button class="mini-btn primary" data-close="1" type="button">知道了</button>' +
+        '</div>' +
+      '</div>';
+    overlayEl.hidden = false;
+    var inp = document.getElementById('shareInput');
+    if (inp) { inp.value = link; inp.focus(); inp.select(); }
+  }
+
+  function extractPayload(text) {
+    var s = String(text || '').trim();
+    var m = /#r=([A-Za-z0-9\-_]+)/.exec(s);
+    if (m) return m[1];
+    if (/^[A-Za-z0-9\-_]{60,}$/.test(s)) return s;
+    return '';
+  }
+
+  /* 载入别人的路线时，把「预算 / 行程时长 / 数据源」同步成该路线本身的值，
+     否则面板还停在默认的 ¥1000 · 48h，与实际行程对不上 */
+  function syncControlsFromPlan(plan) {
+    var out = { budget: null, shownBudget: null, hours: null, days: 0 };
+    if (!plan) return out;
+
+    // 预算：滑杆只有 200~2000，超出范围时贴到端点，但保留原值用于提示
+    var b = Math.round(plan.budget || 0);
+    if (b > 0) {
+      var min = +budgetEl.min || 200, max = +budgetEl.max || 2000;
+      var step = +budgetEl.step || 50;
+      var v = Math.round(Math.min(max, Math.max(min, b)) / step) * step;
+      out.budget = b;
+      out.shownBudget = v;
+      budgetEl.value = String(v);
+      syncRange();
+    }
+
+    // 行程时长：按实际跨度就近落到 24 / 48 / 72
+    var days = (plan.meta && plan.meta.calDays)
+      ? plan.meta.calDays
+      : Math.max(1, Math.ceil((plan.totalSpan || 0) / 1440));
+    out.days = days;
+    var hours = days <= 1 ? 24 : days === 2 ? 48 : 72;
+    out.hours = hours;
+    duration = hours;
+    var seg = document.getElementById('seg');
+    Array.prototype.forEach.call(seg.querySelectorAll('button'), function (btn) {
+      var on = +btn.dataset.hours === hours;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+
+    // 载入的是真实数据，数据源开关也对齐（只改界面，不写回本地偏好）
+    if (plan.source === 'amap') applySource('amap', true);
+    return out;
+  }
+
+  function syncToastText(synced) {
+    if (!synced || !synced.hours) return '';
+    var txt = '　·　已同步预算 ' + yuan(synced.shownBudget) + '、时长 ' + synced.hours + 'h';
+    if (synced.budget && synced.budget !== synced.shownBudget) {
+      txt += '（原方案 ' + yuan(synced.budget) + '，超出滑杆 ' +
+             ('¥' + (+budgetEl.min)) + '~' + ('¥' + (+budgetEl.max)) + ' 范围）';
+    }
+    return txt;
+  }
+
+  function doImport(text) {
+    var payload = extractPayload(text);
+    if (!payload) { toast('没识别出分享编码，请把完整链接粘进来'); return false; }
+    try {
+      var plan = decodePlan(payload);
+      closeOverlay();
+      var synced = syncControlsFromPlan(plan);
+      renderPlan(plan, 'imp_' + plan.seed);
+      toast('已导入：' + plan.from + ' → ' + plan.to + ' · ' + plan.nodes.length + ' 站' +
+            syncToastText(synced));
+      return true;
+    } catch (e) {
+      console.error('[import]', e);
+      toast('导入失败：链接已损坏或版本不兼容');
+      return false;
+    }
+  }
+
+  function shareRoute(id, from, to) {
+    var all = store.routes.concat(store.community);
+    var r = all.filter(function (x) { return x.id === id; })[0];
+    if (!r) { toast('找不到这条路线'); return; }
+    doShare(r.plan, r.from, r.to);
+  }
+
+  function copyText(text, cb) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          function () { cb(true); },
+          function () { cb(legacyCopy(text)); }
+        );
+        return;
+      }
+    } catch (e) { /* 继续走降级方案 */ }
+    cb(legacyCopy(text));
+  }
+
+  function legacyCopy(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) { return false; }
+  }
+
+  /* =========================================================
+   * 14. 社区路线（首次运行预置模拟数据）
+   * =======================================================*/
+  var COMMUNITY_SEED = [
+    { user: '阿岚', from: '上海', to: '杭州', budget: 1200, duration: 48, ago: 17, sum: 19, count: 4 },
+    { user: '小满', from: '成都', to: '重庆', budget: 900,  duration: 24, ago: 12, sum: 14, count: 3 },
+    { user: 'Nemo', from: '广州', to: '厦门', budget: 1800, duration: 72, ago: 8,  sum: 23, count: 5 },
+    { user: '柚子', from: '北京', to: '天津', budget: 600,  duration: 24, ago: 5,  sum: 11, count: 3 },
+    { user: '老周', from: '西安', to: '洛阳', budget: 1500, duration: 48, ago: 2,  sum: 17, count: 4 }
+  ];
+
+  function seedCommunity() {
+    if (store.community.length) return;
+    var now = Date.now();
+    store.community = COMMUNITY_SEED.map(function (s, i) {
+      var id = 'c_' + (i + 1) + '_' + s.from;
+      var plan = plainPlan(buildMockPlan({ from: s.from, to: s.to, budget: s.budget, duration: s.duration }));
+      store.comments[id] = [{
+        id: uid('cm'),
+        user: pickStatic(COMMENT_NAMES, i * 3 + 1),
+        text: pickStatic(COMMENT_TEXTS, i),
+        image: null,
+        ts: now - s.ago * 86400000 - i * 3600000
+      }];
+      return {
+        id: id, user: s.user, from: s.from, to: s.to, budget: s.budget, duration: s.duration,
+        ratingSum: s.sum, ratingCount: s.count, myRating: 0,
+        savedAt: now - s.ago * 86400000, plan: plan
+      };
+    });
+    lsSet(LS_COMMUNITY, store.community);
+    lsSet(LS_COMMENTS, store.comments);
+  }
+
+  function starHTML(n) {
+    var out = '';
+    for (var i = 1; i <= 5; i++) {
+      out += '<span class="' + (i <= n ? 'on' : '') + '" data-v="' + i + '">' + (i <= n ? '★' : '☆') + '</span>';
+    }
+    return out;
+  }
+
+  function renderCommunity() {
+    var el = document.getElementById('communityList');
+    document.getElementById('communityMeta').textContent = store.community.length + ' 条';
+    if (!store.community.length) {
+      el.innerHTML = '<div class="empty-tip">暂无社区路线</div>';
+      return;
+    }
+    el.innerHTML = store.community.map(function (r) {
+      var spent = r.plan.nodes.reduce(function (s, n) { return s + n.cost; }, 0);
+      var avg = r.ratingCount ? (r.ratingSum / r.ratingCount) : 0;
+      var cur = state.routeKey === r.id ? ' current' : '';
+      return '<div class="rt-card' + cur + '" data-id="' + r.id + '">' +
+        '<div class="rt-head">' +
+          '<span class="rt-author">' +
+            '<span class="avatar">' + esc(r.user.slice(0, 2)) + '</span>' +
+            '<span class="rt-route">' + esc(r.from) + '<span class="arrow">→</span>' + esc(r.to) + '</span>' +
+          '</span>' +
+          '<span class="rt-badge">' + r.duration + 'h</span>' +
+        '</div>' +
+        '<div class="rt-meta">' +
+          '<span><b>预算</b>' + yuan(r.budget) + '</span>' +
+          '<span><b>花费</b>' + yuan(spent) + '</span>' +
+          '<span><b>评论</b>' + commentsOf(r.id).length + ' 条</span>' +
+        '</div>' +
+        '<div class="rate">' +
+          '<span class="stars" data-rate="' + r.id + '">' + starHTML(r.myRating || 0) + '</span>' +
+          '<span class="rate-info">' + (avg ? avg.toFixed(1) : '暂无') + ' 分 · ' +
+            r.ratingCount + ' 人评分' + (r.myRating ? ' · 你打了 ' + r.myRating + ' 星' : '') +
+          '</span>' +
+        '</div>' +
+        '<div class="rt-actions">' +
+          '<button class="mini-btn primary" type="button" data-act="load">查看详情</button>' +
+          '<button class="mini-btn" type="button" data-act="share">分享</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  document.getElementById('communityList').addEventListener('click', function (ev) {
+    var star = ev.target.closest('.stars span');
+    if (star) {
+      var id = star.parentNode.getAttribute('data-rate');
+      var v = +star.getAttribute('data-v');
+      var route = store.community.filter(function (x) { return x.id === id; })[0];
+      if (!route) return;
+      var prev = route.myRating || 0;
+      route.ratingSum += v - prev;
+      if (!prev) route.ratingCount += 1;
+      route.myRating = v;
+      lsSet(LS_COMMUNITY, store.community);
+      renderCommunity();
+      toast('已为「' + route.from + ' → ' + route.to + '」评分 ' + v + ' 星');
+      return;
+    }
+
+    var btn = ev.target.closest('button[data-act]');
+    if (!btn) return;
+    var card = btn.closest('.rt-card');
+    var rid = card.getAttribute('data-id');
+    var r = store.community.filter(function (x) { return x.id === rid; })[0];
+    if (!r) return;
+    var act = btn.getAttribute('data-act');
+    if (act === 'load') loadRoute(clonePlan(r.plan), r.id, '已载入社区路线，可继续评论');
+    else if (act === 'share') shareRoute(r.id, r.from, r.to);
+  });
+
+  /* =========================================================
+   * 14.5 导入他方行程：把其它智能体输出的行程文本解析成路线
+   *      支持「HH:MM 地点」+ 缩进细节行 + Day 分段的常见格式
+   * =======================================================*/
+  var ITIN_TIME_RE = /^\s*(\d{1,2})\s*[:：]\s*(\d{2})\s*[、,，.。·\-—–:]?\s*(.+)$/;
+
+  function parseMoney(str) {
+    if (!str) return null;
+    if (/免费/.test(str)) return 0;
+    var m = /(\d+)\s*[-–~至]\s*(\d+)\s*元/.exec(str);
+    if (m) return Math.round((+m[1] + +m[2]) / 2);
+    var m2 = /(\d+)\s*元/.exec(str);
+    return m2 ? +m2[1] : null;
+  }
+
+  function parseDwell(str) {
+    if (!str) return null;
+    var h = /(\d+(?:\.\d+)?)\s*[-–~至]\s*(\d+(?:\.\d+)?)\s*小时/.exec(str);
+    if (h) return Math.round((+h[1] + +h[2]) / 2 * 60);
+    var h2 = /(\d+(?:\.\d+)?)\s*小时/.exec(str);
+    if (h2) return Math.round(+h2[1] * 60);
+    var mi = /(\d+)\s*[-–~至]\s*(\d+)\s*分钟/.exec(str);
+    if (mi) return Math.round((+mi[1] + +mi[2]) / 2);
+    var mi2 = /(\d+)\s*分钟/.exec(str);
+    if (mi2) return +mi2[1];
+    return null;
+  }
+
+  function pickDetail(details, key) {
+    var re = new RegExp('^\\s*' + key + '\\s*[:：]\\s*(.+)$');
+    for (var i = 0; i < details.length; i++) {
+      var m = re.exec(details[i]);
+      if (m) return m[1].trim();
+    }
+    return '';
+  }
+
+  function itinQueryName(title) {
+    var s = String(title || '').trim();
+    s = s.replace(/^\s*(早餐|午餐|晚餐|夜宵|过早)\s*[-—–:：]\s*/, '');
+    s = s.replace(/[（(][^）)]*[）)]/g, '');
+    s = s.replace(/(出发|返程|回程|返回住宿|返回|夜游|过早|骑行|徒步|打卡|游览|参观|入住|住宿)$/, '');
+    return s.trim() || String(title || '').trim();
+  }
+
+  function itinKind(title) {
+    var t = String(title || '');
+    if (/出发|起点/.test(t)) return 'depart';
+    if (/返程|回程/.test(t) || /返回$/.test(t)) return 'return';
+    if (/返回住宿|回住宿|回酒店|入住/.test(t)) return 'lodging';
+    if (/住宿|酒店|青旅|旅舍|民宿/.test(t)) return 'lodging';
+    if (/(早餐|午餐|晚餐|夜宵|过早|餐|小吃|水饺|牛杂|热干面|烧烤|咖啡|茶|面馆|食堂)/.test(t)) return 'food';
+    return 'attraction';
+  }
+
+  // 这些字段不是交通描述，扫描车程时必须排除，否则「游玩时间：2-3小时」会被当成车程
+  var ITIN_NONLEG = /^(游玩时间|门票|人均|推荐|招牌|口味|防坑|评分|价格|地址|亮点|重点看|玩法)\s*[:：]/;
+
+  function hintsFromText(text) {
+    text = String(text || '');
+    if (!text) return null;
+    if (!/地铁|公交|骑行|单车|打车|驾车|开车|自驾|轮渡|坐船|步行|车程/.test(text)) return null;
+    var minutes = null;
+    var m1 = /(?:车程|耗时|约)\s*(\d+)\s*分钟/.exec(text) || /(\d+)\s*分钟/.exec(text);
+    if (m1) minutes = +m1[1];
+    if (!minutes) {
+      var m2 = /(\d+(?:\.\d+)?)\s*小时/.exec(text);
+      if (m2) minutes = Math.round(+m2[1] * 60);
+    }
+    var mode = 'walking';
+    if (/地铁/.test(text)) mode = 'subway';
+    else if (/公交/.test(text)) mode = 'bus';
+    else if (/骑行|单车/.test(text)) mode = 'bicycling';
+    else if (/打车|驾车|开车|自驾/.test(text)) mode = 'driving';
+    else if (/轮渡|坐船/.test(text)) mode = 'ferry';
+    else if (/步行/.test(text)) mode = 'walking';
+    return { mode: mode, minutes: minutes, approx: true, fromText: true };
+  }
+
+  // 到达方式可能写在上一站末尾（「车程约50分钟」），也可能写在本站的「交通：」行
+  function parseLegHints(prevDetails, curDetails) {
+    var explicit = pickDetail(curDetails || [], '交通');
+    if (explicit) {
+      var h = hintsFromText(explicit);
+      if (h) return h;
+    }
+    var prev = (prevDetails || []).filter(function (l) {
+      return !ITIN_NONLEG.test(l) && !/^交通\s*[:：]/.test(l);
+    });
+    return hintsFromText(prev.join(' '));
+  }
+
+  function parseItineraryText(text) {
+    var lines = String(text || '').split(/\r?\n/);
+    var stops = [];
+    var from = '', to = '', budget = 0;
+    var day = 1, cur = null, inAppendix = false, inLodging = false, lodgingName = '';
+
+    function flush() { cur = null; }
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].replace(/\s+$/, '');
+      if (!line.trim()) continue;
+
+      // 尾部纯文本附录与正文重复，直接跳过
+      if (/【\s*备忘录/.test(line) || /【\s*预算明细/.test(line)) { inAppendix = true; continue; }
+      if (inAppendix) continue;
+
+      var mFrom = /出发地\s*[-—－]?\s*目的地\s*[:：]\s*(.+?)\s*(?:→|->|—>)\s*(.+)/.exec(line);
+      if (mFrom) { from = mFrom[1].trim(); to = mFrom[2].trim(); continue; }
+
+      var mCost = /(?:预估总花费|总花费|总预算)\s*[:：]\s*(.+)/.exec(line);
+      if (mCost) { budget = parseMoney(mCost[1]) || 0; continue; }
+
+      if (/【\s*住宿/.test(line)) { inLodging = true; continue; }
+      if (inLodging) {
+        if (/【/.test(line)) { inLodging = false; }
+        else {
+          var mL = /首选\s*[:：]\s*(.+)/.exec(line);
+          if (mL) lodgingName = mL[1].trim();
+          continue;
+        }
+      }
+
+      var isHeader = /【/.test(line) || /^#{1,4}\s/.test(line) || /^[⏱📍🏨💡🎒📋💰📝🗺]/.test(line);
+      if (isHeader) {
+        var mDay = /Day\s*(\d+)/i.exec(line) || /第\s*(\d+)\s*天/.exec(line);
+        if (mDay) { day = parseInt(mDay[1], 10) || day; flush(); }
+        continue;
+      }
+
+      var mT = ITIN_TIME_RE.exec(line);
+      if (mT) {
+        flush();
+        cur = {
+          day: day,
+          abs: (day - 1) * 1440 + (+mT[1]) * 60 + (+mT[2]),
+          title: mT[3].trim(),
+          details: []
+        };
+        stops.push(cur);
+        continue;
+      }
+      if (cur) cur.details.push(line.trim());
+    }
+
+    if (lodgingName) {
+      // 住宿单独成段，插到第一天末尾（第二天开始之前），而不是塞到返程前
+      var insertAt = stops.length;
+      var lodDay = stops.length ? stops[stops.length - 1].day : 1;
+      for (var k = 0; k < stops.length; k++) {
+        if (stops[k].day > 1) { insertAt = k; lodDay = stops[k].day - 1; break; }
+      }
+      stops.splice(insertAt, 0, {
+        day: lodDay, abs: null, title: lodgingName, details: ['来源：住宿推荐']
+      });
+    }
+    return { from: from, to: to, stops: stops, budget: budget };
+  }
+
+  /* --- 解析结果 → 内部节点模型 --- */
+  function itineraryToPlan(parsed, geoList) {
+    var stops = parsed.stops;
+    var nodes = [];
+    var seed = hashStr('itin|' + (parsed.from || '') + '|' + (parsed.to || '') + '|' + stops.length);
+    var rng = mulberry32(seed);
+    var ri = function (a, b) { return a + Math.floor(rng() * (b - a + 1)); };
+
+    var cursor = null;
+    var seenDepart = false;
+
+    stops.forEach(function (s, i) {
+      var kind = itinKind(s.title);
+      var kindCode = kind;
+      var baseKind = 'attraction';
+      if (kind === 'depart') { baseKind = 'transport'; kindCode = 'transport-out'; }
+      else if (kind === 'return') { baseKind = 'transport'; kindCode = 'transport-back'; }
+      else if (kind === 'food') baseKind = 'food';
+      else if (kind === 'lodging') baseKind = 'lodging';
+
+      var meta = TYPE_META[baseKind];
+      // 「返回住宿」只是回房放东西，不是过夜；只有当天最后一站才按整晚计算
+      var isLastOfDay = (i === stops.length - 1) || (stops[i + 1].day !== s.day);
+      var dwell = parseDwell(pickDetail(s.details, '游玩时间'));
+      if (!dwell) {
+        if (baseKind === 'lodging') dwell = isLastOfDay ? 480 : 25;
+        else if (baseKind === 'transport') dwell = 40;
+        else if (baseKind === 'food') dwell = 60;
+        else dwell = 110;
+      }
+      var typeLabel = baseKind === 'lodging'
+        ? (isLastOfDay ? '住宿' : '返回住宿')
+        : meta.label;
+      if (kindCode === 'transport-out') typeLabel = '去程交通';
+      else if (kindCode === 'transport-back') typeLabel = '返程交通';
+
+      var cost = parseMoney(pickDetail(s.details, '人均'));
+      if (cost === null) cost = parseMoney(pickDetail(s.details, '门票'));
+      if (cost === null) cost = parseMoney(pickDetail(s.details, '价格'));
+      if (cost === null) cost = parseMoney(s.details.join(' '));
+      if (cost === null) cost = 0;
+
+      var start = s.abs;
+      if (start === null || start === undefined) start = cursor === null ? 7 * 60 + 30 : cursor;
+      if (cursor !== null && start < cursor) start = cursor;
+
+      var notes = [];
+      ['推荐', '招牌', '玩法', '口味'].forEach(function (k) {
+        var v = pickDetail(s.details, k);
+        if (v) notes.push(k + '：' + v);
+      });
+      var avoid = pickDetail(s.details, '防坑');
+      var desc = notes.concat(s.details.filter(function (d) {
+        return !/^(推荐|招牌|玩法|口味|防坑|门票|人均|游玩时间|交通|价格|评分|地址|亮点)\s*[:：]/.test(d);
+      })).join('　');
+
+      var geo = geoList[i] || null;
+      var nd = {
+        index: i, kind: baseKind, kindCode: kindCode,
+        typeLabel: typeLabel,
+        name: s.title, icon: meta.icon, color: meta.color, weight: WEIGHT[baseKind],
+        lng: geo ? geo.lng : null, lat: geo ? geo.lat : null,
+        cost: cost, start: start, duration: dwell,
+        day: s.day, section: 'city',
+        refCost: cost,
+        real: geo ? { address: geo.address || '', rating: '', tel: '', note: notes.join('　') } : null,
+        descBase: desc || '来自导入行程的站点。',
+        tip: avoid ? ('防坑：' + avoid) : '来自导入行程，时间与费用以原文为准。'
+      };
+      nd.end = nd.start + nd.duration;
+      nd.desc = nd.descBase;
+      nd.legFromPrev = i > 0 ? parseLegHints(stops[i - 1].details, s.details) : null;
+
+      var cCount = ri(1, 2), used = {};
+      nd.comments = [];
+      for (var c = 0; c < cCount; c++) {
+        var cname = COMMENT_NAMES[ri(0, COMMENT_NAMES.length - 1)];
+        var guard = 0;
+        while (used[cname] && guard++ < 20) cname = COMMENT_NAMES[ri(0, COMMENT_NAMES.length - 1)];
+        used[cname] = 1;
+        nd.comments.push({
+          name: cname, rating: ri(4, 5),
+          text: COMMENT_TEXTS[ri(0, COMMENT_TEXTS.length - 1)],
+          date: '2024-' + pad2(ri(1, 12)) + '-' + pad2(ri(1, 28))
+        });
+      }
+      nodes.push(nd);
+      cursor = nd.end;
+    });
+
+    // 没有经纬度的节点先剔除，保证地图能画
+    var located = nodes.filter(function (n) { return isFinite(n.lng) && isFinite(n.lat); });
+    located.forEach(function (n, i) { n.index = i; });
+
+    var spent = located.reduce(function (s, n) { return s + n.cost; }, 0);
+    var spanDays = 1;
+    located.forEach(function (n) { if ((n.day || 1) > spanDays) spanDays = n.day || 1; });
+    // 预算：优先用原文的「预估总花费」，否则按已花金额回推
+    var budget = parsed.budget && parsed.budget > 0
+      ? parsed.budget
+      : Math.max(1, Math.round(spent / 0.88));
+
+    return {
+      from: parsed.from || '出发地',
+      to: (parsed.to || '目的地').replace(/[（(].*?[）)]/g, ''),
+      budget: budget, duration: spanDays * 24, seed: seed,
+      nodes: located, legs: [],
+      allocated: spent, ratio: budget ? spent / budget : 0, totalSpan: 0,
+      source: 'amap', mode: 'imported', scenes: null, imported: true,
+      meta: {
+        imported: true,
+        hub: (parsed.to || '目的地').replace(/[（(].*?[）)]/g, ''),
+        days: spanDays,
+        calDays: spanDays,
+        nights: Math.max(0, spanDays - 1),
+        dropped: nodes.length - located.length
+      }
+    };
+  }
+
+  // 定位一个地名：先在整个城市内搜（不锁到区，跨区的江汉大学也能搜到），
+  // 再放开到全国，最后退回地理编码。
+  function locateStop(name, area) {
+    function tryPoi(city, citylimit) {
+      return amapPoi({ keywords: name, citylimit: citylimit }, city, 1)
+        .then(function (list) { return (list && list[0]) || null; })
+        .catch(function () { return null; });
+    }
+    return tryPoi(area, true)
+      .then(function (hit) { return hit || tryPoi('', false); })
+      .then(function (hit) { return hit || amapGeo(name).catch(function () { return null; }); });
+  }
+
+  /* --- 解析 → 地理编码 → 取路径 → 渲染 --- */
+  function buildPlanFromItinerary(text) {
+    var parsed = parseItineraryText(text);
+    if (!parsed.stops.length) { toast('没找到「HH:MM 地点」格式的行程行'); return Promise.reject(new Error('EMPTY')); }
+    if (!amapKey()) { toast('解析地点需要高德 Key，请先填写'); return Promise.reject(new Error('NO_KEY')); }
+
+    var cityHint = (parsed.to || '').replace(/[（(].*?[）)]/g, '').trim();
+    // 高德个人 Key 的 QPS 很低，全部请求串行限速，所以这里会慢一些（约 0.4 秒/站）
+    toast('正在定位 ' + parsed.stops.length + ' 个站点…（高德限速，约需 ' +
+          Math.ceil(parsed.stops.length * 0.9 + 2) + ' 秒）');
+
+    var resolveCity = cityHint ? amapGeo(cityHint).catch(function () { return null; }) : Promise.resolve(null);
+
+    return resolveCity.then(function (city) {
+      // 用「城市名」而不是「区级 adcode」做检索范围，否则跨区的地点（如江汉大学）搜不到
+      var area = city ? (city.city || city.adcode || '') : cityHint;
+      return mapLimit(parsed.stops, 3, function (s) {
+        return locateStop(itinQueryName(s.title), area);
+      }).then(function (geos) {
+        var plan = itineraryToPlan(parsed, geos);
+        if (!plan.nodes.length) { toast('所有站点都没能定位，请检查地点名称'); throw new Error('NO_GEO'); }
+
+        // 定位整体失败时直接报错，不要画一张所有点重合的废图
+        var uniq = {};
+        plan.nodes.forEach(function (n) { uniq[r4(n.lng) + ',' + r4(n.lat)] = 1; });
+        if (plan.nodes.length > 2 && Object.keys(uniq).length < 3) {
+          throw new Error('LOW_CONFIDENCE');
+        }
+
+        // 用高德真实道路补全折线；耗时优先沿用原文
+        var pairs = [];
+        for (var i = 0; i < plan.nodes.length - 1; i++) pairs.push([plan.nodes[i], plan.nodes[i + 1]]);
+        return mapLimit(pairs, 2, function (p, idx) {
+          return amapLeg(p[0], p[1], area).then(function (leg) {
+            var hint = plan.nodes[idx + 1].legFromPrev;
+            if (hint && hint.fromText) {
+              leg.mode = hint.mode || leg.mode;
+              if (hint.minutes) leg.minutes = hint.minutes;
+              leg.fromText = true;
+            }
+            return leg;
+          });
+        }).then(function (legs) {
+          plan.legs = legs.map(function (l) { return l.polyline; });
+          plan.nodes.forEach(function (nd, i) {
+            if (i > 0) nd.legFromPrev = legs[i - 1];
+          });
+          var last = plan.nodes[plan.nodes.length - 1];
+          plan.totalSpan = last.end - plan.nodes[0].start;
+          return plan;
+        });
+      });
+    });
+  }
+
+  /* --- 弹窗：两段式（粘贴 → 预览 → 生成） --- */
+  function showItineraryModal() {
+    overlayEl.innerHTML =
+      '<div class="modal">' +
+        '<h3>导入分享路线</h3>' +
+        '<p>把行程文本整段粘进来（例如其它 AI 生成的攻略）。识别规则：行首「HH:MM 地点」为站点，随后的缩进行作为该站细节（推荐／门票／人均／游玩时间／防坑），<code>Day1/Day2</code> 自动分天。</p>' +
+        '<p style="color:var(--faint)">也可以直接粘 `#r=` 分享链接。</p>' +
+        '<textarea id="itinInput" rows="8" placeholder="07:00 江汉大学出发&#10;地铁3号线…车程约50分钟&#10;08:00 粮豆街过早&#10;推荐：丽华早点店"></textarea>' +
+        '<div class="modal-actions">' +
+          '<button class="mini-btn" data-close="1" type="button">取消</button>' +
+          '<button class="mini-btn primary" data-parse="1" type="button">解析并生成</button>' +
+        '</div>' +
+      '</div>';
+    overlayEl.hidden = false;
+    var inp = document.getElementById('itinInput');
+    if (inp) inp.focus();
+  }
+
+  function runItineraryImport(text) {
+    // 如果粘进来的是分享链接，直接走链接解码，省得用户再找入口
+    if (extractPayload(text)) { doImport(text); return; }
+    var btn = overlayEl.querySelector ? overlayEl.querySelector('[data-parse]') : null;
+    if (btn) { btn.disabled = true; btn.textContent = '解析中…'; }
+    function restore() {
+      if (btn) { btn.disabled = false; btn.textContent = '解析并生成'; }
+    }
+    buildPlanFromItinerary(text).then(function (plan) {
+      restore();
+      closeOverlay();
+      var synced = renderItineraryPlan(plan);
+      toast('已生成：' + plan.from + ' → ' + plan.to + ' · ' + plan.nodes.length + ' 站' +
+            (plan.meta.dropped ? '（' + plan.meta.dropped + ' 站未能定位已跳过）' : '') +
+            syncToastText(synced));
+    }).catch(function (e) {
+      restore();
+      if (!e || !e.message) return;
+      if (e.message === 'NO_KEY' || e.message === 'EMPTY') return;
+      if (e.message === 'LOW_CONFIDENCE') {
+        toast('地点定位失败：多数站点落在同一位置。高德 Key 可能触发限流或额度不足，请稍后重试');
+        return;
+      }
+      console.error('[itinerary]', e);
+      toast('导入失败：' + (e.message === 'NO_GEO' ? '站点未能定位' : '请检查行程文本'));
+    });
+  }
+
+  function renderItineraryPlan(plan) {
+    // 把出发地 / 目的地回填到控制面板，避免面板和地图显示两套地名
+    if (plan.from) { originEl.value = plan.from; pickedPlace.origin = null; }
+    if (plan.to) { destEl.value = plan.to; pickedPlace.dest = null; }
+    var synced = syncControlsFromPlan(plan);
+    renderPlan(plan, 'itin_' + plan.seed);
+    return synced;
+  }
+
+  /* =========================================================
+   * 15. 分享链接落地
+   *     #r=<内嵌路线数据> 优先，跨设备可用；#share/<id> 兼容旧的本地分享
+   * =======================================================*/
+  function handleHash() {
+    var hash = location.hash || '';
+    var mInline = /^#r=(.+)$/.exec(hash);
+    if (mInline) {
+      try {
+        var plan = decodePlan(mInline[1]);
+        renderPlan(plan, 'imp_' + plan.seed);
+        toast('已导入分享路线：' + plan.from + ' → ' + plan.to + ' · ' + plan.nodes.length + ' 站');
+        return true;
+      } catch (e) {
+        console.error('[import]', e);
+        toast('分享链接已损坏或版本不兼容');
+        return false;
+      }
+    }
+    var m = /^#share\/(.+)$/.exec(hash);
+    if (!m) return false;
+    var id = decodeURIComponent(m[1]);
+    var all = store.routes.concat(store.community);
+    var r = all.filter(function (x) { return x.id === id; })[0];
+    if (r) {
+      loadRoute(clonePlan(r.plan), r.id, '已通过分享链接载入路线');
+      return true;
+    }
+    toast('未找到该分享路线（旧格式链接只能在保存它的浏览器里打开）');
+    return false;
+  }
+  window.addEventListener('hashchange', function () { handleHash(); });
+
+  /* =========================================================
+   * 16. 启动
+   * =======================================================*/
+  document.getElementById('saveRoute').addEventListener('click', saveCurrentRoute);
+  document.getElementById('shareCurrent').addEventListener('click', function () {
+    if (!state.plan) { toast('先生成一条路线再分享'); return; }
+    doShare(state.plan, state.plan.from, state.plan.to);
+  });
+  document.getElementById('importItinerary').addEventListener('click', showItineraryModal);
+
+  /* =========================================================
+   * 8.5 出发地 / 目的地 模糊搜索联想
+   * =======================================================*/
+  var tipPairs = [
+    { key: 'origin', input: document.getElementById('origin'), list: document.getElementById('originTips') },
+    { key: 'dest',   input: document.getElementById('dest'),   list: document.getElementById('destTips') }
+  ];
+  var tipState = {};
+
+  // 用另一端已选中的「省 / 市 / 坐标」做偏置，从而同名地点优先本地、其次省内
+  function provinceOf(district) {
+    var s = String(district || '');
+    var m = /^(.{2,10}?(?:省|自治区|特别行政区))/.exec(s);
+    if (m) return m[1];
+    var m2 = /^(北京市|上海市|天津市|重庆市)/.exec(s);
+    return m2 ? m2[1] : '';
+  }
+
+  function biasInfo(exceptKey) {
+    var city = '', province = '', lng = NaN, lat = NaN;
+    for (var i = 0; i < tipPairs.length; i++) {
+      var k = tipPairs[i].key;
+      if (k === exceptKey) continue;
+      var p = pickedPlace[k];
+      if (p) {
+        city = p.city || city;
+        province = provinceOf(p.district) || province;
+        if (isFinite(p.lng)) { lng = p.lng; lat = p.lat; }
+      }
+      if (!city) {
+        var txt = tipPairs[i].input.value.trim();
+        if (txt.length >= 2) city = txt;
+      }
+    }
+    if (!province && city) province = provinceOf(city);
+    return { city: city, province: province, lng: lng, lat: lat };
+  }
+
+  function closeTips(pair) {
+    pair.list.hidden = true;
+    pair.list.innerHTML = '';
+    tipState[pair.key] = null;
+  }
+
+  function renderTips(pair, items, bias) {
+    if (!items.length) {
+      pair.list.innerHTML = '<div class="tip-empty">没有匹配的地点</div>';
+      pair.list.hidden = false;
+      tipState[pair.key] = { items: [], index: -1 };
+      return;
+    }
+    var bp = bias ? bias.province : '', bc = bias ? bias.city : '';
+    pair.list.innerHTML = items.map(function (t, i) {
+      var sameCity = bc && t.district && t.district.indexOf(bc) >= 0;
+      var sameProv = bp && provinceOf(t.district) === bp;
+      var tag = sameCity ? '本地 · ' : (sameProv ? '省内 · ' : '');
+      var dist = t.district || t.address || '';
+      return '<div class="tip-item" data-i="' + i + '">' +
+               '<span class="t-name">' + esc(t.name) + '</span>' +
+               '<span class="t-dist' + (tag ? ' t-same' : '') + '">' +
+                 tag + esc(dist) + '</span>' +
+             '</div>';
+    }).join('');
+    pair.list.hidden = false;
+    tipState[pair.key] = { items: items, index: -1 };
+  }
+
+  function pickTip(pair, tip) {
+    pair.input.value = tip.name;
+    pickedPlace[pair.key] = tip;
+    closeTips(pair);
+    toast('已选择：' + tip.name + (tip.district ? '（' + tip.district + '）' : ''));
+  }
+
+  function moveTipSelection(pair, delta) {
+    var st = tipState[pair.key];
+    if (!st || !st.items.length) return;
+    st.index = (st.index + delta + st.items.length) % st.items.length;
+    Array.prototype.forEach.call(pair.list.querySelectorAll('.tip-item'), function (el2, i) {
+      el2.classList.toggle('on', i === st.index);
+    });
+    var cur = pair.list.querySelectorAll('.tip-item')[st.index];
+    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest' });
+  }
+
+  tipPairs.forEach(function (pair) {
+    var timer = null;
+
+    pair.input.addEventListener('input', function () {
+      var q = pair.input.value.trim();
+      // 手动改动文字后，之前选中的候选点失效
+      if (!pickedPlace[pair.key] || pickedPlace[pair.key].name !== q) pickedPlace[pair.key] = null;
+      if (timer) window.clearTimeout(timer);
+      if (q.length < 2) { closeTips(pair); return; }
+      if (!amapKey()) {
+        pair.list.innerHTML = '<div class="tip-empty">填写高德 Web 服务 Key 后可搜索地点</div>';
+        pair.list.hidden = false;
+        tipState[pair.key] = { items: [], index: -1 };
+        return;
+      }
+      timer = window.setTimeout(function () {
+        var bias = biasInfo(pair.key);
+        amapTips(q, bias.city).then(function (items) {
+          // 排序：完全同名压倒一切；同质量再看是否省内 → 同城 → 距离更近。
+          // 这样输入「长沙」时城市本身仍然第一，而输入「南站」时省内那个排前面。
+          function score(t) {
+            var s = 0;
+            if (t.name === q) s += 1000;
+            else if (t.name.indexOf(q) === 0) s += 220;
+            else if (t.name.indexOf(q) >= 0) s += 90;
+            var tp = provinceOf(t.district);
+            if (bias.province && tp && tp === bias.province) s += 120;
+            if (bias.city && t.district && t.district.indexOf(bias.city) >= 0) s += 50;
+            if (isFinite(bias.lng) && isFinite(t.lng)) {
+              s += Math.max(0, 30 - haversineKm({ lng: bias.lng, lat: bias.lat }, t) / 30);
+            }
+            if (isFinite(t.lng) && isFinite(t.lat)) s += 5;
+            return s;
+          }
+          items.forEach(function (t, i) { t._i = i; t._s = score(t); });
+          items.sort(function (a, b) { return b._s - a._s || a._i - b._i; });
+          renderTips(pair, items.slice(0, 12), bias);
+        }).catch(function (e) {
+          if (String(e && e.message) === 'NO_KEY') return;
+          pair.list.innerHTML = '<div class="tip-empty">' + esc(amapErrorText(e)) + '</div>';
+          pair.list.hidden = false;
+        });
+      }, 260);
+    });
+
+    pair.input.addEventListener('keydown', function (ev) {
+      var st = tipState[pair.key];
+      if (ev.key === 'ArrowDown') { ev.preventDefault(); moveTipSelection(pair, 1); return; }
+      if (ev.key === 'ArrowUp') { ev.preventDefault(); moveTipSelection(pair, -1); return; }
+      if (ev.key === 'Escape') { closeTips(pair); return; }
+      if (ev.key === 'Enter') {
+        if (st && st.index >= 0 && st.items[st.index]) {
+          ev.preventDefault();
+          pickTip(pair, st.items[st.index]);
+          return;
+        }
+        document.getElementById('generate').click();
+      }
+    });
+
+    pair.list.addEventListener('click', function (ev) {
+      var item = ev.target.closest('.tip-item');
+      if (!item) return;
+      var st = tipState[pair.key];
+      var tip = st && st.items[+item.getAttribute('data-i')];
+      if (tip) pickTip(pair, tip);
+    });
+
+    pair.input.addEventListener('blur', function () {
+      window.setTimeout(function () { closeTips(pair); }, 160);
+    });
+    pair.input.addEventListener('focus', function () {
+      var st = tipState[pair.key];
+      if (st && st.items.length) pair.list.hidden = false;
+    });
+  });
+
+  // 首次运行预置社区路线
+  seedCommunity();
+
+  // 若地址栏带分享 ID 则直接载入，否则渲染默认路线
+  if (!handleHash()) {
+    renderPlan(buildMockPlan({
+      from: originEl.value,
+      to: destEl.value,
+      budget: +budgetEl.value,
+      duration: duration
+    }));
+  }
+})();
+</script>
+</body>
+</html>
